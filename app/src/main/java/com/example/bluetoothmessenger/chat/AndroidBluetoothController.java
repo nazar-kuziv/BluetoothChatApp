@@ -22,17 +22,13 @@ import java.util.ArrayList;
 import java.util.Objects;
 import java.util.Set;
 
-@SuppressLint("MissingPermission")
+@SuppressLint({"MissingPermission", "StaticFieldLeak"})
 public class AndroidBluetoothController{
-    public static final int BLUETOOTH_ENABLE_FOR_PAIRED = 1;
-    public static final int BLUETOOTH_ENABLE_FOR_SCAN = 2;
-    public static final int BLUETOOTH_VISIBLE_ENABLE = 3;
-    public static final int LOCATION_PERMISSION = 4;
-    public static final int LOCATION_ENABLE = 5;
     private final Context context;
     private final BluetoothAdapter bluetoothAdapter;
     private final ArrayList<BluetoothContact> scannedDevices = new ArrayList<>();
     private final ArrayList<BluetoothContact> pairedDevices = new ArrayList<>();
+    public static ChatUtils chatUtils;
 
     public AndroidBluetoothController(Context context) {
         this.context = context;
@@ -44,6 +40,7 @@ public class AndroidBluetoothController{
         IntentFilter filter = new IntentFilter();
         filter.addAction(BluetoothDevice.ACTION_FOUND);
         filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
+        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
         context.registerReceiver(receiver, filter);
     }
 
@@ -81,8 +78,12 @@ public class AndroidBluetoothController{
     }
 
     public boolean isLocationEnabled() {
-        final LocationManager manager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
-        return manager.isProviderEnabled(LocationManager.GPS_PROVIDER);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            final LocationManager manager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+            return manager.isProviderEnabled(LocationManager.GPS_PROVIDER);
+        } else {
+            return true;
+        }
     }
 
     public boolean isVisible() {
@@ -90,7 +91,11 @@ public class AndroidBluetoothController{
     }
 
     public boolean haveLocationPermissions() {
-        return ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            return ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        } else {
+            return true;
+        }
     }
 
     public final BroadcastReceiver receiver = new BroadcastReceiver() {
@@ -106,11 +111,20 @@ public class AndroidBluetoothController{
                         context.sendBroadcast(resultIntent);
                 }
             }else if(BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)){
+                Intent resultIntent = new Intent("Discovery finished");
+                context.sendBroadcast(resultIntent);
                 Toast.makeText(context, "Discovery finished", Toast.LENGTH_SHORT).show();
+            }else if(BluetoothAdapter.ACTION_DISCOVERY_STARTED.equals(action)){
+                Intent resultIntent = new Intent("Discovery started");
+                context.sendBroadcast(resultIntent);
+                Toast.makeText(context, "Discovery started", Toast.LENGTH_SHORT).show();
             }
         }
     };
 
-
-
+    public static final int BLUETOOTH_ENABLE_FOR_PAIRED = 1;
+    public static final int BLUETOOTH_ENABLE_FOR_SCAN = 2;
+    public static final int BLUETOOTH_VISIBLE_ENABLE = 3;
+    public static final int LOCATION_PERMISSION = 4;
+    public static final int LOCATION_ENABLE = 5;
 }

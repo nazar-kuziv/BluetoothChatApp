@@ -5,6 +5,10 @@ import static com.example.bluetoothmessenger.chat.AndroidBluetoothController.BLU
 import static com.example.bluetoothmessenger.chat.AndroidBluetoothController.BLUETOOTH_VISIBLE_ENABLE;
 import static com.example.bluetoothmessenger.chat.AndroidBluetoothController.LOCATION_ENABLE;
 import static com.example.bluetoothmessenger.chat.AndroidBluetoothController.LOCATION_PERMISSION;
+import static com.example.bluetoothmessenger.chat.ChatUtils.DEVICE_ADDRESS;
+import static com.example.bluetoothmessenger.chat.ChatUtils.DEVICE_NAME;
+import static com.example.bluetoothmessenger.chat.ChatUtils.DEVICE_NAME_MESSAGE;
+import static com.example.bluetoothmessenger.chat.ChatUtils.MESSAGE_STATE_CHANGED;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
@@ -17,7 +21,8 @@ import android.content.IntentFilter;
 import android.content.IntentSender;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.view.Gravity;
+import android.os.Handler;
+import android.os.Message;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -37,6 +42,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.bluetoothmessenger.chat.AndroidBluetoothController;
+import com.example.bluetoothmessenger.chat.ChatUtils;
 import com.example.bluetoothmessenger.data.BluetoothContact;
 import com.google.android.gms.common.api.ResolvableApiException;
 import com.google.android.gms.location.LocationRequest;
@@ -49,10 +55,12 @@ import java.util.List;
 
 @SuppressLint({"MissingPermission", "UnspecifiedRegisterReceiverFlag"})
 
-public class BluetoothScan extends AppCompatActivity {
+public class BluetoothScanActivity extends AppCompatActivity {
     private AndroidBluetoothController bluetoothController;
     private DevicedAdapter pairedDevicesAdapter, scannedDevicesAdapter;
     private TextView scannedDevices;
+    private MenuItem scanButton;
+    private BluetoothContact contact;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,6 +74,8 @@ public class BluetoothScan extends AppCompatActivity {
         });
         init();
         IntentFilter filter = new IntentFilter("New Device Found");
+        filter.addAction("Discovery finished");
+        filter.addAction("Discovery started");
         registerReceiver(scannedDevicesReceiver, filter);
         showPairedDevices();
     }
@@ -73,6 +83,7 @@ public class BluetoothScan extends AppCompatActivity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.scan_menu, menu);
+        scanButton = menu.findItem(R.id.scan);
         setTitle("Choose device");
         return true;
     }
@@ -110,7 +121,61 @@ public class BluetoothScan extends AppCompatActivity {
         scannedDevicesView.setLayoutManager(new LinearLayoutManager(this));
         scannedDevices = findViewById(R.id.scanned_devices_text);
         bluetoothController = new AndroidBluetoothController(this);
+
+        if(AndroidBluetoothController.chatUtils == null){
+            AndroidBluetoothController.chatUtils = new ChatUtils(handler);
+        }else{
+            AndroidBluetoothController.chatUtils.finish();
+            AndroidBluetoothController.chatUtils.setHandler(handler);
+        }
+
+        AndroidBluetoothController.chatUtils.startListening();
+
+        scannedDevicesAdapter.setOnItemClickListener((name, macAddress) -> {
+            if(!bluetoothController.isBluetoothEnabled()){
+                enableBluetooth();
+            }else{
+                contact = new BluetoothContact(name, macAddress);
+                BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+                AndroidBluetoothController.chatUtils.connect(bluetoothAdapter.getRemoteDevice(macAddress));
+            }
+        });
+
+        pairedDevicesAdapter.setOnItemClickListener((name, macAddress) -> {
+            if(!bluetoothController.isBluetoothEnabled()){
+                enableBluetooth();
+            }else{
+                contact = new BluetoothContact(name, macAddress);
+                BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+                AndroidBluetoothController.chatUtils.connect(bluetoothAdapter.getRemoteDevice(macAddress));
+            }
+        });
     }
+
+    private final Handler handler = new Handler(new Handler.Callback() {
+        @Override
+        public boolean handleMessage(@NonNull Message msg) {
+            switch (msg.what) {
+                case MESSAGE_STATE_CHANGED:
+                    switch (msg.arg1) {
+                        case ChatUtils.STATE_CONNECTED:
+                            Intent intent = new Intent(BluetoothScanActivity.this, ChatActivity.class);
+                            intent.putExtra("macAddress", contact.getMACaddress());
+                            intent.putExtra("name", contact.getName());
+                            startActivity(intent);
+                            break;
+                        case ChatUtils.STATE_CONNECTING:
+                            Toast.makeText(BluetoothScanActivity.this, "Connecting to " + contact.getName(), Toast.LENGTH_SHORT).show();
+                    }
+                case DEVICE_NAME_MESSAGE:
+                    contact = new BluetoothContact(msg.getData().getString(DEVICE_NAME), msg.getData().getString(DEVICE_ADDRESS));
+                    break;
+                case ChatUtils.TOAST_MESSAGE:
+                    Toast.makeText(BluetoothScanActivity.this, msg.getData().getString(ChatUtils.TOAST), Toast.LENGTH_SHORT).show();
+            }
+            return false;
+        }
+    });
 
     private void showPairedDevices() {
         if (!bluetoothController.isBluetoothEnabled()) {
@@ -182,6 +247,10 @@ public class BluetoothScan extends AppCompatActivity {
             String action = intent.getAction();
             if ("New Device Found".equals(action)) {
                 scannedDevicesAdapter.add(intent.getStringExtra("name"), intent.getStringExtra("MACaddress"));
+            } else if("Discovery finished".equals(action)){
+                scanButton.setVisible(true);
+            }else if("Discovery started".equals(action)){
+                scanButton.setVisible(false);
             }
         }
     };
@@ -235,6 +304,11 @@ public class BluetoothScan extends AppCompatActivity {
         startActivityForResult(enableBtIntent, BLUETOOTH_ENABLE_FOR_PAIRED);
     }
 
+    private void enableBluetooth() {
+        Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+        startActivity(enableBtIntent);
+    }
+
     private void enableBluetoothForScan() {
         Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
         startActivityForResult(enableBtIntent, BLUETOOTH_ENABLE_FOR_SCAN);
@@ -247,8 +321,9 @@ public class BluetoothScan extends AppCompatActivity {
     }
 
     public static class DevicedAdapter extends RecyclerView.Adapter<DevicedAdapter.ViewHolder> {
-
         private final List<BluetoothContact> devices;
+
+        private OnItemClickListener onItemListener;
 
         public DevicedAdapter() {
             devices = new ArrayList<>();
@@ -268,6 +343,12 @@ public class BluetoothScan extends AppCompatActivity {
             BluetoothContact device = devices.get(position);
             holder.name.setText(device.getName());
             holder.MACaddress.setText(device.getMACaddress());
+
+            holder.itemView.setOnClickListener(v -> {
+                if (onItemListener != null) {
+                    onItemListener.onItemClick(device.getName(), device.getMACaddress());
+                }
+            });
         }
 
         @Override
@@ -287,6 +368,14 @@ public class BluetoothScan extends AppCompatActivity {
             notifyDataSetChanged();
         }
 
+        public void setOnItemClickListener(OnItemClickListener listener) {
+            onItemListener = listener;
+        }
+
+        public interface OnItemClickListener {
+            void onItemClick(String name, String macAddress);
+        }
+
         public static class ViewHolder extends RecyclerView.ViewHolder {
             public TextView name;
             public TextView MACaddress;
@@ -297,6 +386,7 @@ public class BluetoothScan extends AppCompatActivity {
                 name = itemView.findViewById(R.id.name);
                 MACaddress = itemView.findViewById(R.id.mac_address);
             }
+
         }
     }
 

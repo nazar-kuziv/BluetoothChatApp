@@ -1,8 +1,9 @@
 package com.example.bluetoothmessenger.data;
 
+import java.io.Serializable;
 import java.util.Objects;
 
-public class BluetoothContact {
+public class BluetoothContact implements Serializable {
     private String name;
     private final String MACaddress;
 

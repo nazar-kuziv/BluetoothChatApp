@@ -11,7 +11,7 @@
         android:id="@+id/main"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        tools:context=".BluetoothScan">
+        tools:context=".BluetoothScanActivity">
 
         <TextView
             android:id="@+id/my_devices_text"
