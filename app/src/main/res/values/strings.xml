@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">BluetoothMessenger</string>
+    <string name="my_devices">MY DEVICES</string>
+    <string name="other_devices">OTHER DEVICES</string>
+    <string name="back_to_previous_screen">Back to previous screen</string>
+    <string name="scan_for_devices">Scan for devices</string>
+</resources>
