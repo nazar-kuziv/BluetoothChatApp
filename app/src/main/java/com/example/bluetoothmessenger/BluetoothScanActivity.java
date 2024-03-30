@@ -38,6 +38,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.core.widget.NestedScrollView;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -57,7 +58,9 @@ import java.util.List;
 
 public class BluetoothScanActivity extends AppCompatActivity {
     private AndroidBluetoothController bluetoothController;
-    private DevicedAdapter pairedDevicesAdapter, scannedDevicesAdapter;
+    private DevicesAdapter pairedDevicesAdapter, scannedDevicesAdapter;
+
+    private NestedScrollView scannedDevicesLayout;
     private TextView scannedDevices;
     private MenuItem scanButton;
     private BluetoothContact contact;
@@ -106,19 +109,22 @@ public class BluetoothScanActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        bluetoothController.finish();
+//        bluetoothController.finish();
         unregisterReceiver(scannedDevicesReceiver);
     }
 
     private void init() {
+        scannedDevicesLayout = findViewById(R.id.scanned_devices_layout);
         RecyclerView pairedDevicesView = findViewById(R.id.paired_devices);
         RecyclerView scannedDevicesView = findViewById(R.id.scanned_devices);
-        pairedDevicesAdapter = new DevicedAdapter();
-        scannedDevicesAdapter = new DevicedAdapter();
+        pairedDevicesAdapter = new DevicesAdapter();
+        scannedDevicesAdapter = new DevicesAdapter();
         pairedDevicesView.setAdapter(pairedDevicesAdapter);
         scannedDevicesView.setAdapter(scannedDevicesAdapter);
         pairedDevicesView.setLayoutManager(new LinearLayoutManager(this));
-        scannedDevicesView.setLayoutManager(new LinearLayoutManager(this));
+        LinearLayoutManager linearLayoutManager = new LinearLayoutManager(this);
+        linearLayoutManager.setReverseLayout(true);
+        scannedDevicesView.setLayoutManager(linearLayoutManager);
         scannedDevices = findViewById(R.id.scanned_devices_text);
         bluetoothController = new AndroidBluetoothController(this);
 
@@ -252,6 +258,7 @@ public class BluetoothScanActivity extends AppCompatActivity {
             }else if("Discovery started".equals(action)){
                 scanButton.setVisible(false);
             }
+            scannedDevicesLayout.fullScroll(View.FOCUS_DOWN);
         }
     };
 
@@ -320,18 +327,18 @@ public class BluetoothScanActivity extends AppCompatActivity {
         startActivityForResult(discoverableIntent, BLUETOOTH_VISIBLE_ENABLE);
     }
 
-    public static class DevicedAdapter extends RecyclerView.Adapter<DevicedAdapter.ViewHolder> {
+    public static class DevicesAdapter extends RecyclerView.Adapter<DevicesAdapter.ViewHolder> {
         private final List<BluetoothContact> devices;
 
         private OnItemClickListener onItemListener;
 
-        public DevicedAdapter() {
+        public DevicesAdapter() {
             devices = new ArrayList<>();
         }
 
         @NonNull
         @Override
-        public DevicedAdapter.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+        public DevicesAdapter.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
             Context context = parent.getContext();
             LayoutInflater inflater = LayoutInflater.from(context);
             View contactView = inflater.inflate(R.layout.bluetooth_device, parent, false);

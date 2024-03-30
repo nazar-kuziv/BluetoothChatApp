@@ -4,4 +4,7 @@
     <string name="other_devices">OTHER DEVICES</string>
     <string name="back_to_previous_screen">Back to previous screen</string>
     <string name="scan_for_devices">Scan for devices</string>
+    <string name="message">Message</string>
+    <string name="send_image_button">Send image button</string>
+    <string name="paint_your_own_image">Paint your own image</string>
 </resources>

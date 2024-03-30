@@ -5,11 +5,15 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
+import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
+import android.widget.Toast;
 
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.UUID;
 
 @SuppressLint("MissingPermission")
@@ -19,6 +23,7 @@ public class ChatUtils {
     private final BluetoothAdapter bluetoothAdapter;
     private ConnectThread connectThread;
     private AcceptThread acceptThread;
+    private ConnectedThread connectedThread;
 
     public ChatUtils(Handler handler) {
         this.handler = handler;
@@ -40,6 +45,10 @@ public class ChatUtils {
             acceptThread = new AcceptThread();
             acceptThread.start();
         }
+        if (connectedThread != null) {
+            connectedThread.cancel();
+            connectedThread = null;
+        }
         setState(STATE_LISTEN);
     }
 
@@ -52,6 +61,10 @@ public class ChatUtils {
             acceptThread.cancel();
             acceptThread = null;
         }
+        if (connectedThread != null) {
+            connectedThread.cancel();
+            connectedThread = null;
+        }
         setState(STATE_NONE);
     }
 
@@ -60,9 +73,26 @@ public class ChatUtils {
             connectThread.cancel();
             connectThread = null;
         }
+
         connectThread = new ConnectThread(device);
         connectThread.start();
+
+        if (connectedThread != null) {
+            connectedThread.cancel();
+            connectedThread = null;
+        }
         setState(STATE_CONNECTING);
+    }
+
+    public void write(byte[] out) {
+        ConnectedThread r;
+        synchronized (this) {
+            if (state != STATE_CONNECTED) {
+                return;
+            }
+            r = connectedThread;
+        }
+        r.write(out);
     }
 
     private class ConnectThread extends Thread {
@@ -97,7 +127,7 @@ public class ChatUtils {
                 connectThread = null;
             }
 
-            connected(device);
+            connected(socket, device);
         }
 
         public void cancel() {
@@ -138,7 +168,7 @@ public class ChatUtils {
                 switch (state) {
                     case STATE_LISTEN:
                     case STATE_CONNECTING:
-                        connected(socket.getRemoteDevice());
+                        connected(socket, socket.getRemoteDevice());
                         break;
                     case STATE_NONE:
                     case STATE_CONNECTED:
@@ -161,6 +191,76 @@ public class ChatUtils {
         }
     }
 
+    private class ConnectedThread extends Thread{
+        private final BluetoothSocket socket;
+        private final InputStream inputStream;
+        private final OutputStream outputStream;
+
+        private ConnectedThread(BluetoothSocket socket){
+            this.socket = socket;
+
+            InputStream tmpIn = null;
+            OutputStream tmpOut = null;
+
+            try {
+                tmpIn = socket.getInputStream();
+                tmpOut = socket.getOutputStream();
+            }catch (Exception e){
+                Log.e("ConnectedThread", "Error occurred when creating input and output streams", e);
+            }
+
+            inputStream = tmpIn;
+            outputStream = tmpOut;
+        }
+
+        public void run(){
+            byte[] buffer = new byte[1024];
+            int bytes;
+            while (true){
+                try {
+                    try {
+                        bytes = inputStream.read(buffer);
+                        handler.obtainMessage(MESSAGE_READ, bytes, -1, buffer).sendToTarget();
+                    } catch (Exception e) {
+                        Log.e("ConnectedThread", "Error occurred when reading from input stream", e);
+                        connectionLost();
+                    }
+                }catch (Exception e){
+                    Log.e("ConnectedThread", "Error occurred when reading from input stream", e);
+                    connectionLost();
+                    break;
+             }
+            }
+        }
+
+        public void write(byte[] buffer){
+            try{
+                outputStream.write(buffer);
+                handler.obtainMessage(MESSAGE_WRITE, -1, -1, buffer).sendToTarget();
+            }catch (Exception e){
+                Log.e("ConnectedThread", "Error occurred when writing to output stream", e);
+            }
+        }
+
+        public void cancel(){
+            try{
+                socket.close();
+            }catch (Exception e){
+                Log.e("ConnectedThread", "Error occurred when closing the connected socket", e);
+            }
+        }
+
+    }
+
+    public void connectionLost() {
+        Message msg = handler.obtainMessage(TOAST_MESSAGE);
+        Bundle bundle = new Bundle();
+        bundle.putString(TOAST, "Connection lost");
+        msg.setData(bundle);
+        handler.sendMessage(msg);
+        ChatUtils.this.startListening();
+    }
+
     private synchronized void connectionFailed() {
         Message msg = handler.obtainMessage(TOAST_MESSAGE);
         Bundle bundle = new Bundle();
@@ -170,11 +270,20 @@ public class ChatUtils {
         ChatUtils.this.startListening();
     }
 
-    private synchronized void connected(BluetoothDevice device) {
+    private synchronized void connected(BluetoothSocket socket, BluetoothDevice device) {
         if (connectThread != null) {
             connectThread.cancel();
             connectThread = null;
         }
+
+        if (connectedThread != null) {
+            connectedThread.cancel();
+            connectedThread = null;
+        }
+
+        connectedThread = new ConnectedThread(socket);
+
+        connectedThread.start();
 
         Message msg = handler.obtainMessage(DEVICE_NAME_MESSAGE);
         Bundle bundle = new Bundle();
@@ -182,6 +291,7 @@ public class ChatUtils {
         bundle.putString(DEVICE_ADDRESS, device.getAddress());
         msg.setData(bundle);
         handler.sendMessage(msg);
+
         setState(STATE_CONNECTED);
     }
 
