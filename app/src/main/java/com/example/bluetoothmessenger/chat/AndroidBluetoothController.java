@@ -60,11 +60,6 @@ public class AndroidBluetoothController{
         bluetoothAdapter.cancelDiscovery();
     }
 
-    public void finish() {
-        bluetoothAdapter.cancelDiscovery();
-        context.unregisterReceiver(receiver);
-    }
-
     public void updatePairedDevices() {
         pairedDevices.clear();
         Set<BluetoothDevice> devices = bluetoothAdapter.getBondedDevices();

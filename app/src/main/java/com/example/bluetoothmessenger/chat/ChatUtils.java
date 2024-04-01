@@ -5,12 +5,10 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
-import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
-import android.widget.Toast;
 
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -18,17 +16,21 @@ import java.util.UUID;
 
 @SuppressLint("MissingPermission")
 public class ChatUtils {
-    private int state;
-    private Handler handler;
     private final BluetoothAdapter bluetoothAdapter;
     private ConnectThread connectThread;
-    private AcceptThread acceptThread;
-    private ConnectedThread connectedThread;
+    private ListeningThread listeningThread;
+    private CommunicationThread communicationThread;
+    private Handler handler;
+    private int state;
 
     public ChatUtils(Handler handler) {
         this.handler = handler;
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         state = STATE_NONE;
+    }
+
+    public void setHandler(Handler handler) {
+        this.handler = handler;
     }
 
     public synchronized void setState(int state) {
@@ -41,14 +43,16 @@ public class ChatUtils {
             connectThread.cancel();
             connectThread = null;
         }
-        if (acceptThread == null) {
-            acceptThread = new AcceptThread();
-            acceptThread.start();
+        if (communicationThread != null) {
+            communicationThread.cancel();
+            communicationThread = null;
         }
-        if (connectedThread != null) {
-            connectedThread.cancel();
-            connectedThread = null;
+        if (listeningThread != null) {
+            listeningThread.cancel();
+            listeningThread = null;
         }
+        listeningThread = new ListeningThread();
+        listeningThread.start();
         setState(STATE_LISTEN);
     }
 
@@ -57,42 +61,140 @@ public class ChatUtils {
             connectThread.cancel();
             connectThread = null;
         }
-        if (acceptThread != null) {
-            acceptThread.cancel();
-            acceptThread = null;
+        if (listeningThread != null) {
+            listeningThread.cancel();
+            listeningThread = null;
         }
-        if (connectedThread != null) {
-            connectedThread.cancel();
-            connectedThread = null;
+        if (communicationThread != null) {
+            communicationThread.cancel();
+            communicationThread = null;
         }
         setState(STATE_NONE);
     }
 
     public void connect(BluetoothDevice device) {
-        if (state == STATE_CONNECTING) {
+        if (connectThread != null) {
             connectThread.cancel();
             connectThread = null;
+        }
+
+        if (communicationThread != null) {
+            communicationThread.cancel();
+            communicationThread = null;
         }
 
         connectThread = new ConnectThread(device);
         connectThread.start();
 
-        if (connectedThread != null) {
-            connectedThread.cancel();
-            connectedThread = null;
-        }
         setState(STATE_CONNECTING);
     }
 
+    private synchronized void connected(BluetoothSocket socket, BluetoothDevice device) {
+        if (connectThread != null) {
+            connectThread.cancel();
+            connectThread = null;
+        }
+
+        if (communicationThread != null) {
+            communicationThread.cancel();
+            communicationThread = null;
+        }
+
+        communicationThread = new CommunicationThread(socket);
+
+        communicationThread.start();
+
+        Message msg = handler.obtainMessage(DEVICE_NAME_MESSAGE);
+        Bundle bundle = new Bundle();
+        bundle.putString(DEVICE_NAME, device.getName());
+        bundle.putString(DEVICE_ADDRESS, device.getAddress());
+        msg.setData(bundle);
+        handler.sendMessage(msg);
+
+        setState(STATE_CONNECTED);
+    }
+
+    private synchronized void connectionFailed() {
+        Message msg = handler.obtainMessage(TOAST_MESSAGE);
+        Bundle bundle = new Bundle();
+        bundle.putString(TOAST, "Connection failed");
+        msg.setData(bundle);
+        handler.sendMessage(msg);
+        ChatUtils.this.startListening();
+    }
+
     public void write(byte[] out) {
-        ConnectedThread r;
+        CommunicationThread r;
         synchronized (this) {
             if (state != STATE_CONNECTED) {
                 return;
             }
-            r = connectedThread;
+            r = communicationThread;
         }
         r.write(out);
+    }
+
+    public synchronized void connectionLost() {
+        if(communicationThread != null){
+            Message msg = handler.obtainMessage(TOAST_MESSAGE);
+            Bundle bundle = new Bundle();
+            bundle.putString(TOAST, "Connection lost");
+            msg.setData(bundle);
+            handler.sendMessage(msg);
+        }
+        ChatUtils.this.finish();
+    }
+
+    private class ListeningThread extends Thread {
+        private final BluetoothServerSocket serverSocket;
+
+        public ListeningThread() {
+            BluetoothServerSocket tmp = null;
+            try {
+                tmp = bluetoothAdapter.listenUsingRfcommWithServiceRecord(APP_NAME, APP_UUID);
+            } catch (Exception e) {
+                Log.e("ListeningThread", "Socket's listen() method failed", e);
+            }
+            this.serverSocket = tmp;
+        }
+
+        public void run() {
+            BluetoothSocket socket = null;
+            try {
+                socket = serverSocket.accept();
+            } catch (Exception e) {
+                Log.e("ListeningThread", "Socket's accept() method failed", e);
+                try {
+                    serverSocket.close();
+                } catch (Exception e1) {
+                    Log.e("ListeningThread", "Could not close the server socket", e1);
+                }
+            }
+            if (socket != null) {
+                switch (state) {
+                    case STATE_LISTEN:
+                    case STATE_CONNECTING:
+                        connected(socket, socket.getRemoteDevice());
+                        break;
+                    case STATE_NONE:
+                    case STATE_CONNECTED:
+                        try {
+                            socket.close();
+                        } catch (Exception e) {
+                            Log.e("ListeningThread", "Could not close the server socket", e);
+                        }
+                        break;
+                }
+            }
+        }
+
+        public void cancel() {
+            try {
+                serverSocket.close();
+            } catch (Exception e) {
+                Log.e("ListeningThread", "Could not close the server socket", e);
+            }
+        }
     }
 
     private class ConnectThread extends Thread {
@@ -139,64 +241,12 @@ public class ChatUtils {
         }
     }
 
-    private class AcceptThread extends Thread {
-        private final BluetoothServerSocket serverSocket;
-
-        public AcceptThread() {
-            BluetoothServerSocket tmp = null;
-            try {
-                tmp = bluetoothAdapter.listenUsingRfcommWithServiceRecord(APP_NAME, APP_UUID);
-            } catch (Exception e) {
-                Log.e("AcceptThread", "Socket's listen() method failed", e);
-            }
-            this.serverSocket = tmp;
-        }
-
-        public void run() {
-            BluetoothSocket socket = null;
-            try {
-                socket = serverSocket.accept();
-            } catch (Exception e) {
-                Log.e("AcceptThread", "Socket's accept() method failed", e);
-                try {
-                    serverSocket.close();
-                } catch (Exception e1) {
-                    Log.e("AcceptThread", "Could not close the server socket", e1);
-                }
-            }
-            if (socket != null) {
-                switch (state) {
-                    case STATE_LISTEN:
-                    case STATE_CONNECTING:
-                        connected(socket, socket.getRemoteDevice());
-                        break;
-                    case STATE_NONE:
-                    case STATE_CONNECTED:
-                        try {
-                            socket.close();
-                        } catch (Exception e) {
-                            Log.e("AcceptThread", "Could not close the server socket", e);
-                        }
-                        break;
-                }
-            }
-        }
-
-        public void cancel() {
-            try {
-                serverSocket.close();
-            } catch (Exception e) {
-                Log.e("AcceptThread", "Could not close the server socket", e);
-            }
-        }
-    }
-
-    private class ConnectedThread extends Thread{
+    private class CommunicationThread extends Thread{
         private final BluetoothSocket socket;
         private final InputStream inputStream;
         private final OutputStream outputStream;
 
-        private ConnectedThread(BluetoothSocket socket){
+        private CommunicationThread(BluetoothSocket socket){
             this.socket = socket;
 
             InputStream tmpIn = null;
@@ -206,7 +256,7 @@ public class ChatUtils {
                 tmpIn = socket.getInputStream();
                 tmpOut = socket.getOutputStream();
             }catch (Exception e){
-                Log.e("ConnectedThread", "Error occurred when creating input and output streams", e);
+                Log.e("CommunicationThread", "Error occurred when creating input and output streams", e);
             }
 
             inputStream = tmpIn;
@@ -218,18 +268,13 @@ public class ChatUtils {
             int bytes;
             while (true){
                 try {
-                    try {
-                        bytes = inputStream.read(buffer);
-                        handler.obtainMessage(MESSAGE_READ, bytes, -1, buffer).sendToTarget();
-                    } catch (Exception e) {
-                        Log.e("ConnectedThread", "Error occurred when reading from input stream", e);
-                        connectionLost();
-                    }
-                }catch (Exception e){
-                    Log.e("ConnectedThread", "Error occurred when reading from input stream", e);
+                    bytes = inputStream.read(buffer);
+                    handler.obtainMessage(MESSAGE_READ, bytes, -1, buffer).sendToTarget();
+                } catch (Exception e) {
+                    Log.e("CommunicationThread", "Error occurred when reading from input stream", e);
                     connectionLost();
                     break;
-             }
+                }
             }
         }
 
@@ -238,7 +283,7 @@ public class ChatUtils {
                 outputStream.write(buffer);
                 handler.obtainMessage(MESSAGE_WRITE, -1, -1, buffer).sendToTarget();
             }catch (Exception e){
-                Log.e("ConnectedThread", "Error occurred when writing to output stream", e);
+                Log.e("CommunicationThread", "Error occurred when writing to output stream", e);
             }
         }
 
@@ -246,57 +291,10 @@ public class ChatUtils {
             try{
                 socket.close();
             }catch (Exception e){
-                Log.e("ConnectedThread", "Error occurred when closing the connected socket", e);
+                Log.e("CommunicationThread", "Error occurred when closing the connected socket", e);
             }
         }
 
-    }
-
-    public void connectionLost() {
-        Message msg = handler.obtainMessage(TOAST_MESSAGE);
-        Bundle bundle = new Bundle();
-        bundle.putString(TOAST, "Connection lost");
-        msg.setData(bundle);
-        handler.sendMessage(msg);
-        ChatUtils.this.startListening();
-    }
-
-    private synchronized void connectionFailed() {
-        Message msg = handler.obtainMessage(TOAST_MESSAGE);
-        Bundle bundle = new Bundle();
-        bundle.putString(TOAST, "Connection failed");
-        msg.setData(bundle);
-        handler.sendMessage(msg);
-        ChatUtils.this.startListening();
-    }
-
-    private synchronized void connected(BluetoothSocket socket, BluetoothDevice device) {
-        if (connectThread != null) {
-            connectThread.cancel();
-            connectThread = null;
-        }
-
-        if (connectedThread != null) {
-            connectedThread.cancel();
-            connectedThread = null;
-        }
-
-        connectedThread = new ConnectedThread(socket);
-
-        connectedThread.start();
-
-        Message msg = handler.obtainMessage(DEVICE_NAME_MESSAGE);
-        Bundle bundle = new Bundle();
-        bundle.putString(DEVICE_NAME, device.getName());
-        bundle.putString(DEVICE_ADDRESS, device.getAddress());
-        msg.setData(bundle);
-        handler.sendMessage(msg);
-
-        setState(STATE_CONNECTED);
-    }
-
-    public void setHandler(Handler handler) {
-        this.handler = handler;
     }
 
     public static final int STATE_NONE = 1;

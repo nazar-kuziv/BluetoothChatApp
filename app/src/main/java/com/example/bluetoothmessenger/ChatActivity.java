@@ -1,7 +1,5 @@
 package com.example.bluetoothmessenger;
 
-import static com.example.bluetoothmessenger.chat.ChatUtils.DEVICE_NAME;
-import static com.example.bluetoothmessenger.chat.ChatUtils.DEVICE_NAME_MESSAGE;
 import static com.example.bluetoothmessenger.chat.ChatUtils.MESSAGE_READ;
 import static com.example.bluetoothmessenger.chat.ChatUtils.MESSAGE_STATE_CHANGED;
 import static com.example.bluetoothmessenger.chat.ChatUtils.MESSAGE_WRITE;
@@ -28,6 +26,7 @@ import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -42,55 +41,16 @@ import com.example.bluetoothmessenger.data.ChatMessage;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class ChatActivity extends AppCompatActivity {
     private BluetoothContact contact;
-    private ChatUtils chatUtils;
     private ImageButton cameraButton;
     private ImageButton sendButton;
     private ImageButton paintButton;
     private RecyclerView chatRecyclerView;
     private ChatAdapter chatAdapter;
     private EditText editText;
-
-    private final Handler handler = new Handler(new Handler.Callback() {
-        @Override
-        public boolean handleMessage(@NonNull Message msg) {
-            switch (msg.what) {
-                case MESSAGE_STATE_CHANGED:
-                    switch (msg.arg1) {
-                        case ChatUtils.STATE_CONNECTED:
-                            setState("Connected to " + contact.getName());
-                            break;
-                        case ChatUtils.STATE_CONNECTING:
-                            setState("Connecting...");
-                            break;
-                        case ChatUtils.STATE_LISTEN:
-                        case ChatUtils.STATE_NONE:
-                            setState("Not connected");
-                            break;
-                    }
-                    break;
-                case MESSAGE_READ:
-                    byte[] buffer = (byte[]) msg.obj;
-                    String inputBuffer = new String(buffer, 0, msg.arg1);
-                    chatAdapter.addMessage(inputBuffer, false);
-                    break;
-                case MESSAGE_WRITE:
-                    byte[] writeBuf = (byte[]) msg.obj;
-                    chatAdapter.addMessage(new String(writeBuf), true);
-                    break;
-                case DEVICE_NAME_MESSAGE:
-                    contact = new BluetoothContact(msg.getData().getString(DEVICE_NAME), contact.getMACaddress());
-                    Toast.makeText(ChatActivity.this, contact.getName(), Toast.LENGTH_SHORT).show();
-                    break;
-                case TOAST_MESSAGE:
-                    Toast.makeText(ChatActivity.this, msg.getData().getString(TOAST), Toast.LENGTH_SHORT).show();
-                    break;
-            }
-            return false;
-        }
-    });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -104,8 +64,7 @@ public class ChatActivity extends AppCompatActivity {
         });
         contact = new BluetoothContact(getIntent().getStringExtra("name"), getIntent().getStringExtra("macAddress"));
 
-        chatUtils = AndroidBluetoothController.chatUtils;
-        chatUtils.setHandler(handler);
+        AndroidBluetoothController.chatUtils.setHandler(handler);
         editText = findViewById(R.id.message_input);
         cameraButton = findViewById(R.id.camera_btn);
         sendButton = findViewById(R.id.send_btn);
@@ -141,27 +100,73 @@ public class ChatActivity extends AppCompatActivity {
         sendButton.setOnClickListener(v -> {
             String message = editText.getText().toString();
             if(!message.isEmpty()){
-                chatUtils.write(message.getBytes());
+                AndroidBluetoothController.chatUtils.write(message.getBytes());
                 editText.setText("");
             }
         });
     }
 
+    @Override
+    protected void onPause() {
+        super.onPause();
+        AndroidBluetoothController.chatUtils.connectionLost();
+    }
+
+    private final Handler handler = new Handler(new Handler.Callback() {
+        @Override
+        public boolean handleMessage(@NonNull Message msg) {
+            switch (msg.what) {
+                case MESSAGE_STATE_CHANGED:
+                    switch (msg.arg1) {
+                        case ChatUtils.STATE_CONNECTED:
+                            setState("Connected to " + contact.getName());
+                            break;
+                        case ChatUtils.STATE_CONNECTING:
+                            setState("Connecting...");
+                            break;
+                        case ChatUtils.STATE_LISTEN:
+                        case ChatUtils.STATE_NONE:
+                            setState("Not connected");
+                            break;
+                    }
+                    break;
+                case MESSAGE_READ:
+                    byte[] buffer = (byte[]) msg.obj;
+                    String inputBuffer = new String(buffer, 0, msg.arg1);
+                    chatAdapter.addMessage(inputBuffer, false);
+                    break;
+                case MESSAGE_WRITE:
+                    byte[] writeBuf = (byte[]) msg.obj;
+                    chatAdapter.addMessage(new String(writeBuf), true);
+                    break;
+                case TOAST_MESSAGE:
+                    Toast.makeText(ChatActivity.this, msg.getData().getString(TOAST), Toast.LENGTH_SHORT).show();
+                    break;
+            }
+            return false;
+        }
+    });
+
     private void setChatAdapter(){
         chatRecyclerView = findViewById(R.id.chat_recycler_view);
         chatAdapter = new ChatAdapter();
         LinearLayoutManager manager = new LinearLayoutManager(this);
-        manager.setReverseLayout(false);
         chatRecyclerView.setLayoutManager(manager);
         chatRecyclerView.setAdapter(chatAdapter);
 
         chatAdapter.registerAdapterDataObserver(new RecyclerView.AdapterDataObserver() {
             @Override
             public void onItemRangeInserted(int positionStart, int itemCount) {
-                chatRecyclerView.smoothScrollToPosition(0);
+                chatRecyclerView.postDelayed(() -> {
+                    int lastVisibleItemPosition = manager.findLastVisibleItemPosition();
+                    if (lastVisibleItemPosition == -1 || positionStart >= lastVisibleItemPosition) {
+                        manager.scrollToPositionWithOffset(positionStart, 0);
+                    }
+                }, 100);
             }
         });
     }
+
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -181,16 +186,8 @@ public class ChatActivity extends AppCompatActivity {
         }
     }
 
-    @Override
-    protected void onDestroy() {
-        if(chatUtils != null) {
-            chatUtils.finish();
-        }
-        super.onDestroy();
-    }
-
     private void setState(CharSequence state) {
-        getSupportActionBar().setSubtitle(state);
+        Objects.requireNonNull(getSupportActionBar()).setSubtitle(state);
     }
 
     public static class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder> {
@@ -231,7 +228,7 @@ public class ChatActivity extends AppCompatActivity {
         @SuppressLint("NotifyDataSetChanged")
         public void addMessage(String message, boolean wroteByUser) {
             messages.add(new ChatMessage(message, wroteByUser));
-            notifyDataSetChanged();
+            notifyItemInserted(messages.size() - 1);
         }
 
         public static class ChatViewHolder extends RecyclerView.ViewHolder {

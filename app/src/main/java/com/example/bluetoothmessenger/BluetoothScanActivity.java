@@ -9,6 +9,8 @@ import static com.example.bluetoothmessenger.chat.ChatUtils.DEVICE_ADDRESS;
 import static com.example.bluetoothmessenger.chat.ChatUtils.DEVICE_NAME;
 import static com.example.bluetoothmessenger.chat.ChatUtils.DEVICE_NAME_MESSAGE;
 import static com.example.bluetoothmessenger.chat.ChatUtils.MESSAGE_STATE_CHANGED;
+import static com.example.bluetoothmessenger.chat.ChatUtils.TOAST;
+import static com.example.bluetoothmessenger.chat.ChatUtils.TOAST_MESSAGE;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
@@ -59,9 +61,8 @@ import java.util.List;
 public class BluetoothScanActivity extends AppCompatActivity {
     private AndroidBluetoothController bluetoothController;
     private DevicesAdapter pairedDevicesAdapter, scannedDevicesAdapter;
-
     private NestedScrollView scannedDevicesLayout;
-    private TextView scannedDevices;
+    private TextView scannedDevicesTextView;
     private MenuItem scanButton;
     private BluetoothContact contact;
 
@@ -75,12 +76,59 @@ public class BluetoothScanActivity extends AppCompatActivity {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
-        init();
+
+        scannedDevicesLayout = findViewById(R.id.scanned_devices_layout);
+        scannedDevicesTextView = findViewById(R.id.scanned_devices_text);
+
+        setAdapters();
+
+        bluetoothController = new AndroidBluetoothController(this);
+
+        if (AndroidBluetoothController.chatUtils == null) {
+            AndroidBluetoothController.chatUtils = new ChatUtils(handler);
+        } else {
+            AndroidBluetoothController.chatUtils.finish();
+            AndroidBluetoothController.chatUtils.setHandler(handler);
+        }
+
+        AndroidBluetoothController.chatUtils.startListening();
+
+        scannedDevicesAdapter.setOnItemClickListener((name, macAddress) -> {
+            if (!bluetoothController.isBluetoothEnabled()) {
+                enableBluetooth();
+            } else {
+                contact = new BluetoothContact(name, macAddress);
+                BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+                AndroidBluetoothController.chatUtils.connect(bluetoothAdapter.getRemoteDevice(macAddress));
+            }
+        });
+
+        pairedDevicesAdapter.setOnItemClickListener((name, macAddress) -> {
+            if (!bluetoothController.isBluetoothEnabled()) {
+                enableBluetooth();
+            } else {
+                contact = new BluetoothContact(name, macAddress);
+                BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+                AndroidBluetoothController.chatUtils.connect(bluetoothAdapter.getRemoteDevice(macAddress));
+            }
+        });
+
+        showPairedDevices();
+
         IntentFilter filter = new IntentFilter("New Device Found");
         filter.addAction("Discovery finished");
         filter.addAction("Discovery started");
         registerReceiver(scannedDevicesReceiver, filter);
+    }
+
+    @Override
+    protected void onRestart() {
+        super.onRestart();
         showPairedDevices();
+        synchronized (this) {
+            AndroidBluetoothController.chatUtils.startListening();
+            AndroidBluetoothController.chatUtils.setHandler(handler);
+        }
     }
 
     @Override
@@ -105,16 +153,7 @@ public class BluetoothScanActivity extends AppCompatActivity {
         }
     }
 
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-//        bluetoothController.finish();
-        unregisterReceiver(scannedDevicesReceiver);
-    }
-
-    private void init() {
-        scannedDevicesLayout = findViewById(R.id.scanned_devices_layout);
+    private void setAdapters() {
         RecyclerView pairedDevicesView = findViewById(R.id.paired_devices);
         RecyclerView scannedDevicesView = findViewById(R.id.scanned_devices);
         pairedDevicesAdapter = new DevicesAdapter();
@@ -125,37 +164,6 @@ public class BluetoothScanActivity extends AppCompatActivity {
         LinearLayoutManager linearLayoutManager = new LinearLayoutManager(this);
         linearLayoutManager.setReverseLayout(true);
         scannedDevicesView.setLayoutManager(linearLayoutManager);
-        scannedDevices = findViewById(R.id.scanned_devices_text);
-        bluetoothController = new AndroidBluetoothController(this);
-
-        if(AndroidBluetoothController.chatUtils == null){
-            AndroidBluetoothController.chatUtils = new ChatUtils(handler);
-        }else{
-            AndroidBluetoothController.chatUtils.finish();
-            AndroidBluetoothController.chatUtils.setHandler(handler);
-        }
-
-        AndroidBluetoothController.chatUtils.startListening();
-
-        scannedDevicesAdapter.setOnItemClickListener((name, macAddress) -> {
-            if(!bluetoothController.isBluetoothEnabled()){
-                enableBluetooth();
-            }else{
-                contact = new BluetoothContact(name, macAddress);
-                BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-                AndroidBluetoothController.chatUtils.connect(bluetoothAdapter.getRemoteDevice(macAddress));
-            }
-        });
-
-        pairedDevicesAdapter.setOnItemClickListener((name, macAddress) -> {
-            if(!bluetoothController.isBluetoothEnabled()){
-                enableBluetooth();
-            }else{
-                contact = new BluetoothContact(name, macAddress);
-                BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-                AndroidBluetoothController.chatUtils.connect(bluetoothAdapter.getRemoteDevice(macAddress));
-            }
-        });
     }
 
     private final Handler handler = new Handler(new Handler.Callback() {
@@ -172,12 +180,16 @@ public class BluetoothScanActivity extends AppCompatActivity {
                             break;
                         case ChatUtils.STATE_CONNECTING:
                             Toast.makeText(BluetoothScanActivity.this, "Connecting to " + contact.getName(), Toast.LENGTH_SHORT).show();
+                            break;
                     }
+                    break;
                 case DEVICE_NAME_MESSAGE:
                     contact = new BluetoothContact(msg.getData().getString(DEVICE_NAME), msg.getData().getString(DEVICE_ADDRESS));
+                    Toast.makeText(BluetoothScanActivity.this, "Connecting to " + contact.getName(), Toast.LENGTH_SHORT).show();
                     break;
-                case ChatUtils.TOAST_MESSAGE:
-                    Toast.makeText(BluetoothScanActivity.this, msg.getData().getString(ChatUtils.TOAST), Toast.LENGTH_SHORT).show();
+                case TOAST_MESSAGE:
+                    Toast.makeText(BluetoothScanActivity.this, msg.getData().getString(TOAST), Toast.LENGTH_SHORT).show();
+                    break;
             }
             return false;
         }
@@ -200,16 +212,16 @@ public class BluetoothScanActivity extends AppCompatActivity {
     }
 
     private void scanDevices() {
-        if(!bluetoothController.haveLocationPermissions()){
+        if (!bluetoothController.haveLocationPermissions()) {
             askForLocationPermissions();
-        }else if (!bluetoothController.isBluetoothEnabled()) {
+        } else if (!bluetoothController.isBluetoothEnabled()) {
             enableBluetoothForScan();
         } else if (!bluetoothController.isLocationEnabled()) {
             enableLocation();
         } else if (!bluetoothController.isVisible()) {
             enableVisibility();
-        } else{
-            scannedDevices.setVisibility(View.VISIBLE);
+        } else {
+            scannedDevicesTextView.setVisibility(View.VISIBLE);
             bluetoothController.stopDiscovery();
             scannedDevicesAdapter.clear();
             showPairedDevices();
@@ -253,9 +265,9 @@ public class BluetoothScanActivity extends AppCompatActivity {
             String action = intent.getAction();
             if ("New Device Found".equals(action)) {
                 scannedDevicesAdapter.add(intent.getStringExtra("name"), intent.getStringExtra("MACaddress"));
-            } else if("Discovery finished".equals(action)){
+            } else if ("Discovery finished".equals(action)) {
                 scanButton.setVisible(true);
-            }else if("Discovery started".equals(action)){
+            } else if ("Discovery started".equals(action)) {
                 scanButton.setVisible(false);
             }
             scannedDevicesLayout.fullScroll(View.FOCUS_DOWN);
@@ -263,9 +275,7 @@ public class BluetoothScanActivity extends AppCompatActivity {
     };
 
     private void askForLocationPermissions() {
-        ActivityCompat.requestPermissions(this,
-                new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                LOCATION_PERMISSION);
+        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION);
     }
 
     @Override
@@ -281,29 +291,21 @@ public class BluetoothScanActivity extends AppCompatActivity {
     }
 
     private void enableLocation() {
-        LocationRequest locationRequest = LocationRequest.create()
-                .setInterval(1000)
-                .setFastestInterval(1000)
-                .setPriority(LocationRequest.PRIORITY_LOW_POWER);
+        LocationRequest locationRequest = LocationRequest.create().setInterval(1000).setFastestInterval(1000).setPriority(LocationRequest.PRIORITY_LOW_POWER);
 
-        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder()
-                .addLocationRequest(locationRequest);
+        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder().addLocationRequest(locationRequest);
 
-        LocationServices
-                .getSettingsClient(this)
-                .checkLocationSettings(builder.build())
-                .addOnSuccessListener(this, (LocationSettingsResponse response) -> {
-                })
-                .addOnFailureListener(this, ex -> {
-                    if (ex instanceof ResolvableApiException) {
-                        try {
-                            ResolvableApiException resolvable = (ResolvableApiException) ex;
-                            resolvable.startResolutionForResult(this, LOCATION_ENABLE);
-                        } catch (IntentSender.SendIntentException sendEx) {
-                            // Ignore the error
-                        }
-                    }
-                });
+        LocationServices.getSettingsClient(this).checkLocationSettings(builder.build()).addOnSuccessListener(this, (LocationSettingsResponse response) -> {
+        }).addOnFailureListener(this, ex -> {
+            if (ex instanceof ResolvableApiException) {
+                try {
+                    ResolvableApiException resolvable = (ResolvableApiException) ex;
+                    resolvable.startResolutionForResult(this, LOCATION_ENABLE);
+                } catch (IntentSender.SendIntentException sendEx) {
+                    // Ignore the error
+                }
+            }
+        });
     }
 
     private void enableBluetoothForPaired() {
@@ -396,5 +398,4 @@ public class BluetoothScanActivity extends AppCompatActivity {
 
         }
     }
-
 }
