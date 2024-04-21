@@ -106,8 +106,8 @@ public class ChatUtils {
 
         Message msg = handler.obtainMessage(DEVICE_NAME_MESSAGE);
         Bundle bundle = new Bundle();
-        bundle.putString(DEVICE_NAME, device.getName());
-        bundle.putString(DEVICE_ADDRESS, device.getAddress());
+        bundle.putString(CONNECTED_DEVICE_NAME, device.getName());
+        bundle.putString(CONNECTED_DEVICE_ADDRESS, device.getAddress());
         msg.setData(bundle);
         handler.sendMessage(msg);
 
@@ -306,9 +306,9 @@ public class ChatUtils {
     public static final int MESSAGE_WRITE = 7;
     public static final int DEVICE_NAME_MESSAGE = 8;
     public static final int TOAST_MESSAGE = 9;
-    public static final String TOAST = "toast";
-    public static final String DEVICE_NAME = "device_name";
-    public static final String DEVICE_ADDRESS = "device_address";
+    public static final String TOAST = "Toast";
+    public static final String CONNECTED_DEVICE_NAME = "ConnectedDeviceName";
+    public static final String CONNECTED_DEVICE_ADDRESS = "ConnectedDeviceAddress";
     private static final UUID APP_UUID = UUID.fromString("7211ebe8-08cd-460a-8e6b-de55aef84723");
     private static final String APP_NAME = "BluetoothChatApp";
 }

@@ -100,17 +100,17 @@ public class AndroidBluetoothController{
                 BluetoothContact device = BluetoothContactConverter.toBluetoothContact(Objects.requireNonNull(intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)));
                 if (!scannedDevices.contains(device) && !pairedDevices.contains(device) && device.getName() != null) {
                         scannedDevices.add(device);
-                        Intent resultIntent = new Intent("New Device Found");
-                        resultIntent.putExtra("name", device.getName());
-                        resultIntent.putExtra("MACaddress", device.getMACaddress());
+                        Intent resultIntent = new Intent(NEW_DEVICE_FOUND);
+                        resultIntent.putExtra(DISCOVERED_DEVICE_NAME, device.getName());
+                        resultIntent.putExtra(DISCOVERED_DEVICE_ADDRESS, device.getMACaddress());
                         context.sendBroadcast(resultIntent);
                 }
             }else if(BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)){
-                Intent resultIntent = new Intent("Discovery finished");
+                Intent resultIntent = new Intent(DISCOVERY_FINISHED);
                 context.sendBroadcast(resultIntent);
                 Toast.makeText(context, "Discovery finished", Toast.LENGTH_SHORT).show();
             }else if(BluetoothAdapter.ACTION_DISCOVERY_STARTED.equals(action)){
-                Intent resultIntent = new Intent("Discovery started");
+                Intent resultIntent = new Intent(DISCOVERY_STARTED);
                 context.sendBroadcast(resultIntent);
                 Toast.makeText(context, "Discovery started", Toast.LENGTH_SHORT).show();
             }
@@ -122,4 +122,9 @@ public class AndroidBluetoothController{
     public static final int BLUETOOTH_VISIBLE_ENABLE = 3;
     public static final int LOCATION_PERMISSION = 4;
     public static final int LOCATION_ENABLE = 5;
+    public static final String NEW_DEVICE_FOUND = "NewDeviceFound";
+    public static final String DISCOVERY_FINISHED = "DiscoveryFinished";
+    public static final String DISCOVERY_STARTED = "DiscoveryStarted";
+    public static final String DISCOVERED_DEVICE_NAME = "DiscoveredDeviceName";
+    public static final String DISCOVERED_DEVICE_ADDRESS = "DiscoveredDeviceAddress";
 }

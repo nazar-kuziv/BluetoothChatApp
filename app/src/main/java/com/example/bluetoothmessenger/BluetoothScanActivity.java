@@ -3,10 +3,15 @@ package com.example.bluetoothmessenger;
 import static com.example.bluetoothmessenger.chat.AndroidBluetoothController.BLUETOOTH_ENABLE_FOR_PAIRED;
 import static com.example.bluetoothmessenger.chat.AndroidBluetoothController.BLUETOOTH_ENABLE_FOR_SCAN;
 import static com.example.bluetoothmessenger.chat.AndroidBluetoothController.BLUETOOTH_VISIBLE_ENABLE;
+import static com.example.bluetoothmessenger.chat.AndroidBluetoothController.DISCOVERED_DEVICE_ADDRESS;
+import static com.example.bluetoothmessenger.chat.AndroidBluetoothController.DISCOVERED_DEVICE_NAME;
+import static com.example.bluetoothmessenger.chat.AndroidBluetoothController.DISCOVERY_FINISHED;
+import static com.example.bluetoothmessenger.chat.AndroidBluetoothController.DISCOVERY_STARTED;
 import static com.example.bluetoothmessenger.chat.AndroidBluetoothController.LOCATION_ENABLE;
 import static com.example.bluetoothmessenger.chat.AndroidBluetoothController.LOCATION_PERMISSION;
-import static com.example.bluetoothmessenger.chat.ChatUtils.DEVICE_ADDRESS;
-import static com.example.bluetoothmessenger.chat.ChatUtils.DEVICE_NAME;
+import static com.example.bluetoothmessenger.chat.AndroidBluetoothController.NEW_DEVICE_FOUND;
+import static com.example.bluetoothmessenger.chat.ChatUtils.CONNECTED_DEVICE_ADDRESS;
+import static com.example.bluetoothmessenger.chat.ChatUtils.CONNECTED_DEVICE_NAME;
 import static com.example.bluetoothmessenger.chat.ChatUtils.DEVICE_NAME_MESSAGE;
 import static com.example.bluetoothmessenger.chat.ChatUtils.MESSAGE_STATE_CHANGED;
 import static com.example.bluetoothmessenger.chat.ChatUtils.TOAST;
@@ -84,14 +89,6 @@ public class BluetoothScanActivity extends AppCompatActivity {
 
         bluetoothController = new AndroidBluetoothController(this);
 
-        if (AndroidBluetoothController.chatUtils == null) {
-            AndroidBluetoothController.chatUtils = new ChatUtils(handler);
-        } else {
-            AndroidBluetoothController.chatUtils.finish();
-            AndroidBluetoothController.chatUtils.setHandler(handler);
-        }
-
-        AndroidBluetoothController.chatUtils.startListening();
 
         scannedDevicesAdapter.setOnItemClickListener((name, macAddress) -> {
             if (!bluetoothController.isBluetoothEnabled()) {
@@ -115,9 +112,9 @@ public class BluetoothScanActivity extends AppCompatActivity {
 
         showPairedDevices();
 
-        IntentFilter filter = new IntentFilter("New Device Found");
-        filter.addAction("Discovery finished");
-        filter.addAction("Discovery started");
+        IntentFilter filter = new IntentFilter(NEW_DEVICE_FOUND);
+        filter.addAction(DISCOVERY_FINISHED);
+        filter.addAction(DISCOVERY_STARTED);
         registerReceiver(scannedDevicesReceiver, filter);
     }
 
@@ -125,10 +122,6 @@ public class BluetoothScanActivity extends AppCompatActivity {
     protected void onRestart() {
         super.onRestart();
         showPairedDevices();
-        synchronized (this) {
-            AndroidBluetoothController.chatUtils.startListening();
-            AndroidBluetoothController.chatUtils.setHandler(handler);
-        }
     }
 
     @Override
@@ -174,17 +167,17 @@ public class BluetoothScanActivity extends AppCompatActivity {
                     switch (msg.arg1) {
                         case ChatUtils.STATE_CONNECTED:
                             Intent intent = new Intent(BluetoothScanActivity.this, ChatActivity.class);
-                            intent.putExtra("macAddress", contact.getMACaddress());
-                            intent.putExtra("name", contact.getName());
+                            intent.putExtra(CONNECTED_DEVICE_ADDRESS, contact.getMACaddress());
+                            intent.putExtra(CONNECTED_DEVICE_NAME, contact.getName());
                             startActivity(intent);
+                            Toast.makeText(BluetoothScanActivity.this, "Connected to " + contact.getName(), Toast.LENGTH_SHORT).show();
                             break;
                         case ChatUtils.STATE_CONNECTING:
-                            Toast.makeText(BluetoothScanActivity.this, "Connecting to " + contact.getName(), Toast.LENGTH_SHORT).show();
                             break;
                     }
                     break;
                 case DEVICE_NAME_MESSAGE:
-                    contact = new BluetoothContact(msg.getData().getString(DEVICE_NAME), msg.getData().getString(DEVICE_ADDRESS));
+                    contact = new BluetoothContact(msg.getData().getString(CONNECTED_DEVICE_NAME), msg.getData().getString(CONNECTED_DEVICE_ADDRESS));
                     Toast.makeText(BluetoothScanActivity.this, "Connecting to " + contact.getName(), Toast.LENGTH_SHORT).show();
                     break;
                 case TOAST_MESSAGE:
@@ -199,6 +192,13 @@ public class BluetoothScanActivity extends AppCompatActivity {
         if (!bluetoothController.isBluetoothEnabled()) {
             enableBluetoothForPaired();
         } else {
+            if (AndroidBluetoothController.chatUtils == null) {
+                AndroidBluetoothController.chatUtils = new ChatUtils(handler);
+            } else {
+                AndroidBluetoothController.chatUtils.finish();
+                AndroidBluetoothController.chatUtils.setHandler(handler);
+            }
+            AndroidBluetoothController.chatUtils.startListening();
             pairedDevicesAdapter.clear();
             bluetoothController.updatePairedDevices();
             ArrayList<BluetoothContact> pairedDevices = bluetoothController.getPairedDevices();
@@ -208,6 +208,7 @@ public class BluetoothScanActivity extends AppCompatActivity {
                     pairedDevicesAdapter.add(device.getName(), device.getMACaddress());
                 }
             }
+
         }
     }
 
@@ -263,11 +264,11 @@ public class BluetoothScanActivity extends AppCompatActivity {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
-            if ("New Device Found".equals(action)) {
-                scannedDevicesAdapter.add(intent.getStringExtra("name"), intent.getStringExtra("MACaddress"));
-            } else if ("Discovery finished".equals(action)) {
+            if (NEW_DEVICE_FOUND.equals(action)) {
+                scannedDevicesAdapter.add(intent.getStringExtra(DISCOVERED_DEVICE_NAME), intent.getStringExtra(DISCOVERED_DEVICE_ADDRESS));
+            } else if (DISCOVERY_FINISHED.equals(action)) {
                 scanButton.setVisible(true);
-            } else if ("Discovery started".equals(action)) {
+            } else if (DISCOVERY_STARTED.equals(action)) {
                 scanButton.setVisible(false);
             }
             scannedDevicesLayout.fullScroll(View.FOCUS_DOWN);
@@ -302,7 +303,7 @@ public class BluetoothScanActivity extends AppCompatActivity {
                     ResolvableApiException resolvable = (ResolvableApiException) ex;
                     resolvable.startResolutionForResult(this, LOCATION_ENABLE);
                 } catch (IntentSender.SendIntentException sendEx) {
-                    // Ignore the error
+                    // Ignore the error.
                 }
             }
         });
@@ -331,7 +332,6 @@ public class BluetoothScanActivity extends AppCompatActivity {
 
     public static class DevicesAdapter extends RecyclerView.Adapter<DevicesAdapter.ViewHolder> {
         private final List<BluetoothContact> devices;
-
         private OnItemClickListener onItemListener;
 
         public DevicesAdapter() {
@@ -383,6 +383,12 @@ public class BluetoothScanActivity extends AppCompatActivity {
 
         public interface OnItemClickListener {
             void onItemClick(String name, String macAddress);
+        }
+
+        @Override
+        public void onAttachedToRecyclerView(@NonNull RecyclerView recyclerView) {
+            super.onAttachedToRecyclerView(recyclerView);
+
         }
 
         public static class ViewHolder extends RecyclerView.ViewHolder {

@@ -1,5 +1,6 @@
 [versions]
 agp = "8.3.0"
+ambilwarna = "2.0.1"
 appcompatV7 = "27.1.1"
 junit = "4.13.2"
 junitVersion = "1.1.5"
@@ -10,8 +11,10 @@ activity = "1.8.0"
 constraintlayout = "2.1.4"
 playServicesLocation = "21.2.0"
 playServicesMaps = "18.2.0"
+signatureView = "1.2"
 
 [libraries]
+ambilwarna = { module = "com.github.yukuku:ambilwarna", version.ref = "ambilwarna" }
 appcompat-v7 = { module = "com.android.support:appcompat-v7", version.ref = "appcompatV7" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
@@ -22,6 +25,7 @@ activity = { group = "androidx.activity", name = "activity", version.ref = "acti
 constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
 play-services-location = { module = "com.google.android.gms:play-services-location", version.ref = "playServicesLocation" }
 play-services-maps = { module = "com.google.android.gms:play-services-maps", version.ref = "playServicesMaps" }
+signature-view = { module = "com.kyanogen.signatureview:signature-view", version.ref = "signatureView" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

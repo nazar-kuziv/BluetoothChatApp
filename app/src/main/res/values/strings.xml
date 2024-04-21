@@ -7,4 +7,9 @@
     <string name="message">Message</string>
     <string name="send_image_button">Send image button</string>
     <string name="paint_your_own_image">Paint your own image</string>
+    <string name="erase_an_image">Erase an image</string>
+    <string name="_5">5</string>
+    <string name="choose_color">Choose color</string>
+    <string name="erase_picture">Erase picture</string>
+    <string name="send_picture">Send Picture</string>
 </resources>

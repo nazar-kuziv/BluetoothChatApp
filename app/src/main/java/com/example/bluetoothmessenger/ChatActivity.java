@@ -1,5 +1,7 @@
 package com.example.bluetoothmessenger;
 
+import static com.example.bluetoothmessenger.chat.ChatUtils.CONNECTED_DEVICE_ADDRESS;
+import static com.example.bluetoothmessenger.chat.ChatUtils.CONNECTED_DEVICE_NAME;
 import static com.example.bluetoothmessenger.chat.ChatUtils.MESSAGE_READ;
 import static com.example.bluetoothmessenger.chat.ChatUtils.MESSAGE_STATE_CHANGED;
 import static com.example.bluetoothmessenger.chat.ChatUtils.MESSAGE_WRITE;
@@ -8,6 +10,7 @@ import static com.example.bluetoothmessenger.chat.ChatUtils.TOAST_MESSAGE;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -26,7 +29,6 @@ import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -62,7 +64,7 @@ public class ChatActivity extends AppCompatActivity {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
-        contact = new BluetoothContact(getIntent().getStringExtra("name"), getIntent().getStringExtra("macAddress"));
+        contact = new BluetoothContact(getIntent().getStringExtra(CONNECTED_DEVICE_NAME), getIntent().getStringExtra(CONNECTED_DEVICE_ADDRESS));
 
         AndroidBluetoothController.chatUtils.setHandler(handler);
         editText = findViewById(R.id.message_input);
@@ -104,6 +106,8 @@ public class ChatActivity extends AppCompatActivity {
                 editText.setText("");
             }
         });
+
+        paintButton.setOnClickListener(v -> startActivity(new Intent(this, PaintActivity.class)));
     }
 
     @Override
@@ -118,12 +122,6 @@ public class ChatActivity extends AppCompatActivity {
             switch (msg.what) {
                 case MESSAGE_STATE_CHANGED:
                     switch (msg.arg1) {
-                        case ChatUtils.STATE_CONNECTED:
-                            setState("Connected to " + contact.getName());
-                            break;
-                        case ChatUtils.STATE_CONNECTING:
-                            setState("Connecting...");
-                            break;
                         case ChatUtils.STATE_LISTEN:
                         case ChatUtils.STATE_NONE:
                             setState("Not connected");
