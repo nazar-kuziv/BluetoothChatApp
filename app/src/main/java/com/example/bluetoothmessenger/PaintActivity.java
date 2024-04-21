@@ -1,6 +1,5 @@
 package com.example.bluetoothmessenger;
 
-import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.ImageButton;
@@ -48,11 +47,10 @@ public class PaintActivity extends AppCompatActivity {
         brushSizeBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if(progress< 1)
+                    progress = 1;
                 signatureView.setPenSize(progress);
                 brushSizeText.setText(String.valueOf(progress));
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    brushSizeBar.setMin(1);
-                }
             }
 
             @Override

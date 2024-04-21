@@ -1,7 +1,5 @@
 package com.example.bluetoothmessenger;
 
-import static com.example.bluetoothmessenger.chat.ChatUtils.CONNECTED_DEVICE_ADDRESS;
-import static com.example.bluetoothmessenger.chat.ChatUtils.CONNECTED_DEVICE_NAME;
 import static com.example.bluetoothmessenger.chat.ChatUtils.MESSAGE_READ;
 import static com.example.bluetoothmessenger.chat.ChatUtils.MESSAGE_STATE_CHANGED;
 import static com.example.bluetoothmessenger.chat.ChatUtils.MESSAGE_WRITE;
@@ -9,13 +7,16 @@ import static com.example.bluetoothmessenger.chat.ChatUtils.TOAST;
 import static com.example.bluetoothmessenger.chat.ChatUtils.TOAST_MESSAGE;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -29,6 +30,7 @@ import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -40,7 +42,10 @@ import com.example.bluetoothmessenger.chat.AndroidBluetoothController;
 import com.example.bluetoothmessenger.chat.ChatUtils;
 import com.example.bluetoothmessenger.data.BluetoothContact;
 import com.example.bluetoothmessenger.data.ChatMessage;
+import com.github.dhaval2404.imagepicker.ImagePicker;
 
+import java.io.ByteArrayOutputStream;
+import java.io.FileInputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -64,9 +69,12 @@ public class ChatActivity extends AppCompatActivity {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
-        contact = new BluetoothContact(getIntent().getStringExtra(CONNECTED_DEVICE_NAME), getIntent().getStringExtra(CONNECTED_DEVICE_ADDRESS));
-
-        AndroidBluetoothController.chatUtils.setHandler(handler);
+//        contact = new BluetoothContact(getIntent().getStringExtra(CONNECTED_DEVICE_NAME), getIntent().getStringExtra(CONNECTED_DEVICE_ADDRESS));
+//        AndroidBluetoothController.chatUtils.setHandler(handler);
+        //Delete this 2 lines:
+        contact = new BluetoothContact("Test", "Test");
+        AndroidBluetoothController.chatUtils = new ChatUtils(handler);
+        //
         editText = findViewById(R.id.message_input);
         cameraButton = findViewById(R.id.camera_btn);
         sendButton = findViewById(R.id.send_btn);
@@ -108,6 +116,12 @@ public class ChatActivity extends AppCompatActivity {
         });
 
         paintButton.setOnClickListener(v -> startActivity(new Intent(this, PaintActivity.class)));
+
+        cameraButton.setOnClickListener(v -> ImagePicker.with(this)
+                .crop()
+                .compress(1024)
+                .maxResultSize(1080, 1080)
+                .start());
     }
 
     @Override
@@ -186,6 +200,31 @@ public class ChatActivity extends AppCompatActivity {
 
     private void setState(CharSequence state) {
         Objects.requireNonNull(getSupportActionBar()).setSubtitle(state);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if(resultCode == Activity.RESULT_OK){
+            Uri uri = data.getData();
+            Log.e("URI", uriToByteArray(uri.getPath()).toString());
+        }else if (resultCode == ImagePicker.RESULT_ERROR) {
+            Toast.makeText(this, "Error when loading image", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private byte[] uriToByteArray(String uri) {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (FileInputStream fis = new FileInputStream(uri)) {
+            byte[] buf = new byte[1024];
+            int n;
+            while ((n = fis.read(buf)) != -1) {
+                baos.write(buf, 0, n);
+            }
+        } catch (Exception e) {
+            Log.e("Error", e.getMessage() != null ? e.getMessage() : "Unknown error");
+        }
+        return baos.toByteArray();
     }
 
     public static class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder> {
