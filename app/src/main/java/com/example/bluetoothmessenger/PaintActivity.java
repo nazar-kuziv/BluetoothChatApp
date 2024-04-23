@@ -1,5 +1,6 @@
 package com.example.bluetoothmessenger;
 
+import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.ImageButton;
@@ -14,7 +15,10 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.example.bluetoothmessenger.chat.AndroidBluetoothController;
 import com.kyanogen.signatureview.SignatureView;
+
+import java.io.ByteArrayOutputStream;
 
 import yuku.ambilwarna.AmbilWarnaDialog;
 
@@ -68,12 +72,24 @@ public class PaintActivity extends AppCompatActivity {
 
         sendButton.setOnClickListener(v -> {
             if(!signatureView.isBitmapEmpty()){
-                Log.e("Bitmap", "Image: " + signatureView.getSignatureBitmap().toString());
+                Bitmap imgBitmap = signatureView.getSignatureBitmap();
+                byte[] imgBytes = convertBitmapToByteArrayCompressed(imgBitmap);
+                AndroidBluetoothController.chatUtils.sendImage(imgBytes);
+                onBackPressed();
+                Log.e("Image", "We are sending an image" + imgBytes.length);
             }else{
                 Toast.makeText(this, "Please draw something", Toast.LENGTH_SHORT).show();
             }
         });
 
+    }
+
+    private byte[] convertBitmapToByteArrayCompressed(Bitmap bitmap){
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.PNG, 40, stream);
+        byte[] byteArray = stream.toByteArray();
+        bitmap.recycle();
+        return byteArray;
     }
 
     private void openColorPicker() {
@@ -83,7 +99,6 @@ public class PaintActivity extends AppCompatActivity {
                 defaultColor = color;
                 signatureView.setPenColor(color);
             }
-
             @Override
             public void onCancel(AmbilWarnaDialog dialog) {
             }

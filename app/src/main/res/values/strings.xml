@@ -12,4 +12,5 @@
     <string name="choose_color">Choose color</string>
     <string name="erase_picture">Erase picture</string>
     <string name="send_picture">Send Picture</string>
+    <string name="image_from_message">Image from message</string>
 </resources>

@@ -1,5 +1,8 @@
 package com.example.bluetoothmessenger.chat;
 
+import static com.example.bluetoothmessenger.data.ChatMessage.IMAGE_MESSAGE_BYTE;
+import static com.example.bluetoothmessenger.data.ChatMessage.TEXT_MESSAGE_BYTE;
+
 import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -123,15 +126,40 @@ public class ChatUtils {
         ChatUtils.this.startListening();
     }
 
-    public void write(byte[] out) {
-        CommunicationThread r;
-        synchronized (this) {
-            if (state != STATE_CONNECTED) {
-                return;
+    public void sendImage(byte[] img) {
+        if (communicationThread != null){
+            communicationThread.startSendingImage();
+            int subArraySize = 1024;
+            byte[] imgSize = String.valueOf(img.length).getBytes();
+            Log.e("Image size", String.valueOf(img.length));
+            byte[] imgSizeModified = new byte[imgSize.length + 1];
+            imgSizeModified[0] = IMAGE_MESSAGE_BYTE;
+            System.arraycopy(imgSize, 0, imgSizeModified, 1, imgSize.length);
+            communicationThread.write(imgSizeModified);
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                Log.e("Image", "Error occurred when sleeping", e);
             }
-            r = communicationThread;
+            for (int i = 0; i < img.length; i += subArraySize) {
+                int numberOfBytes = Math.min(subArraySize, img.length - i);
+                byte[] currentPackage = new byte[numberOfBytes];
+                System.arraycopy(img, i, currentPackage, 0, numberOfBytes);
+                communicationThread.write(currentPackage);
+            }
+            communicationThread.stopSendingImage();
+            handler.obtainMessage(IMAGE_WRITE, img.length, -1, img).sendToTarget();
         }
-        r.write(out);
+    }
+
+    public void sendText(String message){
+        if(communicationThread != null){
+            byte[] messageBytes = message.getBytes();
+            byte[] sendMessage = new byte[messageBytes.length + 1];
+            sendMessage[0] = TEXT_MESSAGE_BYTE;
+            System.arraycopy(messageBytes, 0, sendMessage, 1, messageBytes.length);
+            communicationThread.write(sendMessage);
+        }
     }
 
     public synchronized void connectionLost() {
@@ -245,6 +273,10 @@ public class ChatUtils {
         private final BluetoothSocket socket;
         private final InputStream inputStream;
         private final OutputStream outputStream;
+        private byte[] img;
+        private boolean areWeRetrievingImage = false;
+        private boolean areWeSendingImage = false;
+        private int imgSize = 0;
 
         private CommunicationThread(BluetoothSocket socket){
             this.socket = socket;
@@ -267,9 +299,28 @@ public class ChatUtils {
             byte[] buffer = new byte[1024];
             int bytes;
             while (true){
+                Log.e("Image", String.valueOf(areWeRetrievingImage));
                 try {
                     bytes = inputStream.read(buffer);
-                    handler.obtainMessage(MESSAGE_READ, bytes, -1, buffer).sendToTarget();
+                    if(areWeRetrievingImage){
+                        Log.e("Image Length", String.valueOf(img.length));
+                        Log.e("Image Size", String.valueOf(imgSize));
+                        System.arraycopy(buffer, 0, img, img.length - imgSize, bytes);
+                        imgSize -= bytes;
+                        if(imgSize <= 0){
+                            handler.obtainMessage(IMAGE_READ, img.length, -1, img).sendToTarget();
+                            areWeRetrievingImage = false;
+                        }
+                    }else if(buffer[0] == IMAGE_MESSAGE_BYTE) {
+                        areWeRetrievingImage = true;
+                        String test = new String(buffer, 1, bytes - 1);
+                        imgSize = Integer.parseInt(test);
+                        img = new byte[imgSize];
+                    }else if(buffer[0] == TEXT_MESSAGE_BYTE) {
+                        byte[] textMessage = new byte[bytes - 1];
+                        System.arraycopy(buffer, 1, textMessage, 0, bytes - 1);
+                        handler.obtainMessage(MESSAGE_READ, bytes - 1, -1, textMessage).sendToTarget();
+                    }
                 } catch (Exception e) {
                     Log.e("CommunicationThread", "Error occurred when reading from input stream", e);
                     connectionLost();
@@ -281,7 +332,8 @@ public class ChatUtils {
         public void write(byte[] buffer){
             try{
                 outputStream.write(buffer);
-                handler.obtainMessage(MESSAGE_WRITE, -1, -1, buffer).sendToTarget();
+                if(!areWeSendingImage)
+                    handler.obtainMessage(MESSAGE_WRITE, -1, -1, buffer).sendToTarget();
             }catch (Exception e){
                 Log.e("CommunicationThread", "Error occurred when writing to output stream", e);
             }
@@ -295,6 +347,12 @@ public class ChatUtils {
             }
         }
 
+        public void startSendingImage(){
+            areWeSendingImage = true;
+        }
+        public void stopSendingImage(){
+            areWeSendingImage = false;
+        }
     }
 
     public static final int STATE_NONE = 1;
@@ -306,6 +364,8 @@ public class ChatUtils {
     public static final int MESSAGE_WRITE = 7;
     public static final int DEVICE_NAME_MESSAGE = 8;
     public static final int TOAST_MESSAGE = 9;
+    public static final int IMAGE_READ = 10;
+    public static final int IMAGE_WRITE = 11;
     public static final String TOAST = "Toast";
     public static final String CONNECTED_DEVICE_NAME = "ConnectedDeviceName";
     public static final String CONNECTED_DEVICE_ADDRESS = "ConnectedDeviceAddress";

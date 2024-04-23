@@ -19,6 +19,19 @@
             android:textColor="@color/white"
             android:textSize="18sp"
             android:id="@+id/left_chat_textview"/>
+
+        <ImageView
+            android:visibility="gone"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"
+            android:minHeight="100dp"
+            android:maxHeight="300dp"
+            android:minWidth="100dp"
+            android:maxWidth="200dp"
+            android:id="@+id/left_chat_imageview"
+            android:contentDescription="@string/image_from_message" />
     </LinearLayout>
 
     <LinearLayout
@@ -37,6 +50,19 @@
                 android:textColor="@color/white"
                 android:textSize="18sp"
                 android:id="@+id/right_chat_textview"/>
+
+        <ImageView
+            android:visibility="gone"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"
+            android:minHeight="100dp"
+            android:maxHeight="300dp"
+            android:minWidth="100dp"
+            android:maxWidth="200dp"
+            android:id="@+id/right_chat_imageview"
+            android:contentDescription="@string/image_from_message" />
     </LinearLayout>
 
 </RelativeLayout>

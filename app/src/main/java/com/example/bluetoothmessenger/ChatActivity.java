@@ -1,10 +1,16 @@
 package com.example.bluetoothmessenger;
 
+import static com.example.bluetoothmessenger.chat.ChatUtils.CONNECTED_DEVICE_ADDRESS;
+import static com.example.bluetoothmessenger.chat.ChatUtils.CONNECTED_DEVICE_NAME;
+import static com.example.bluetoothmessenger.chat.ChatUtils.IMAGE_READ;
+import static com.example.bluetoothmessenger.chat.ChatUtils.IMAGE_WRITE;
 import static com.example.bluetoothmessenger.chat.ChatUtils.MESSAGE_READ;
 import static com.example.bluetoothmessenger.chat.ChatUtils.MESSAGE_STATE_CHANGED;
 import static com.example.bluetoothmessenger.chat.ChatUtils.MESSAGE_WRITE;
 import static com.example.bluetoothmessenger.chat.ChatUtils.TOAST;
 import static com.example.bluetoothmessenger.chat.ChatUtils.TOAST_MESSAGE;
+import static com.example.bluetoothmessenger.data.ChatMessage.IMAGE_MESSAGE;
+import static com.example.bluetoothmessenger.data.ChatMessage.TEXT_MESSAGE;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -24,6 +30,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -69,12 +76,8 @@ public class ChatActivity extends AppCompatActivity {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
-//        contact = new BluetoothContact(getIntent().getStringExtra(CONNECTED_DEVICE_NAME), getIntent().getStringExtra(CONNECTED_DEVICE_ADDRESS));
-//        AndroidBluetoothController.chatUtils.setHandler(handler);
-        //Delete this 2 lines:
-        contact = new BluetoothContact("Test", "Test");
-        AndroidBluetoothController.chatUtils = new ChatUtils(handler);
-        //
+        contact = new BluetoothContact(getIntent().getStringExtra(CONNECTED_DEVICE_NAME), getIntent().getStringExtra(CONNECTED_DEVICE_ADDRESS));
+        AndroidBluetoothController.chatUtils.setHandler(handler);
         editText = findViewById(R.id.message_input);
         cameraButton = findViewById(R.id.camera_btn);
         sendButton = findViewById(R.id.send_btn);
@@ -109,8 +112,8 @@ public class ChatActivity extends AppCompatActivity {
 
         sendButton.setOnClickListener(v -> {
             String message = editText.getText().toString();
-            if(!message.isEmpty()){
-                AndroidBluetoothController.chatUtils.write(message.getBytes());
+            if (!message.isEmpty()) {
+                AndroidBluetoothController.chatUtils.sendText(message);
                 editText.setText("");
             }
         });
@@ -125,8 +128,8 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onPause() {
-        super.onPause();
+    public void onBackPressed() {
+        super.onBackPressed();
         AndroidBluetoothController.chatUtils.connectionLost();
     }
 
@@ -144,12 +147,19 @@ public class ChatActivity extends AppCompatActivity {
                     break;
                 case MESSAGE_READ:
                     byte[] buffer = (byte[]) msg.obj;
-                    String inputBuffer = new String(buffer, 0, msg.arg1);
-                    chatAdapter.addMessage(inputBuffer, false);
+                    chatAdapter.addMessage(buffer, false, TEXT_MESSAGE);
+                    break;
+                case IMAGE_READ:
+                    byte[] readImgBuffer = (byte[]) msg.obj;
+                    chatAdapter.addMessage(readImgBuffer, false, IMAGE_MESSAGE);
                     break;
                 case MESSAGE_WRITE:
                     byte[] writeBuf = (byte[]) msg.obj;
-                    chatAdapter.addMessage(new String(writeBuf), true);
+                    chatAdapter.addMessage(writeBuf, true, TEXT_MESSAGE);
+                    break;
+                case IMAGE_WRITE:
+                    byte[] writeImgBuffer = (byte[]) msg.obj;
+                    chatAdapter.addMessage(writeImgBuffer, true, IMAGE_MESSAGE);
                     break;
                 case TOAST_MESSAGE:
                     Toast.makeText(ChatActivity.this, msg.getData().getString(TOAST), Toast.LENGTH_SHORT).show();
@@ -159,7 +169,7 @@ public class ChatActivity extends AppCompatActivity {
         }
     });
 
-    private void setChatAdapter(){
+    private void setChatAdapter() {
         chatRecyclerView = findViewById(R.id.chat_recycler_view);
         chatAdapter = new ChatAdapter();
         LinearLayoutManager manager = new LinearLayoutManager(this);
@@ -205,10 +215,15 @@ public class ChatActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if(resultCode == Activity.RESULT_OK){
+        if (resultCode == Activity.RESULT_OK && data != null) {
             Uri uri = data.getData();
-            Log.e("URI", uriToByteArray(uri.getPath()).toString());
-        }else if (resultCode == ImagePicker.RESULT_ERROR) {
+            if (uri != null) {
+                byte[] buffer = uriToByteArray(uri.getPath());
+                AndroidBluetoothController.chatUtils.sendImage(buffer);
+            } else {
+                Toast.makeText(this, "Error when loading image", Toast.LENGTH_LONG).show();
+            }
+        } else if (resultCode == ImagePicker.RESULT_ERROR) {
             Toast.makeText(this, "Error when loading image", Toast.LENGTH_LONG).show();
         }
     }
@@ -246,14 +261,31 @@ public class ChatActivity extends AppCompatActivity {
         @Override
         public void onBindViewHolder(@NonNull ChatViewHolder holder, int position) {
             ChatMessage message = messages.get(position);
-            if(message.wroteByUser) {
+
+            if (message.wroteByUser) {
                 holder.rightChatLayout.setVisibility(LinearLayout.VISIBLE);
                 holder.leftChatLayout.setVisibility(LinearLayout.GONE);
-                holder.rightChatTextView.setText(message.message);
+                if (message.isTextMessage()) {
+                    holder.righChatImageview.setVisibility(ImageView.GONE);
+                    holder.rightChatTextView.setVisibility(TextView.VISIBLE);
+                    holder.rightChatTextView.setText(message.message);
+                } else {
+                    holder.rightChatTextView.setVisibility(TextView.GONE);
+                    holder.righChatImageview.setVisibility(ImageView.VISIBLE);
+                    holder.righChatImageview.setImageBitmap(message.image);
+                }
             } else {
                 holder.leftChatLayout.setVisibility(LinearLayout.VISIBLE);
                 holder.rightChatLayout.setVisibility(LinearLayout.GONE);
-                holder.leftChatTextView.setText(message.message);
+                if (message.isTextMessage()) {
+                    holder.leftChatImageview.setVisibility(ImageView.GONE);
+                    holder.leftChatTextView.setVisibility(TextView.VISIBLE);
+                    holder.leftChatTextView.setText(message.message);
+                } else {
+                    holder.leftChatTextView.setVisibility(TextView.GONE);
+                    holder.leftChatImageview.setVisibility(ImageView.VISIBLE);
+                    holder.leftChatImageview.setImageBitmap(message.image);
+                }
             }
         }
 
@@ -263,14 +295,16 @@ public class ChatActivity extends AppCompatActivity {
         }
 
         @SuppressLint("NotifyDataSetChanged")
-        public void addMessage(String message, boolean wroteByUser) {
-            messages.add(new ChatMessage(message, wroteByUser));
+        public void addMessage(byte[] message, boolean wroteByUser, String type) {
+            messages.add(new ChatMessage(message, wroteByUser, type));
             notifyItemInserted(messages.size() - 1);
         }
 
         public static class ChatViewHolder extends RecyclerView.ViewHolder {
             LinearLayout leftChatLayout, rightChatLayout;
             TextView leftChatTextView, rightChatTextView;
+            ImageView righChatImageview, leftChatImageview;
+
             public ChatViewHolder(@NonNull View itemView) {
                 super(itemView);
 
@@ -278,6 +312,8 @@ public class ChatActivity extends AppCompatActivity {
                 rightChatLayout = itemView.findViewById(R.id.right_chat_layout);
                 leftChatTextView = itemView.findViewById(R.id.left_chat_textview);
                 rightChatTextView = itemView.findViewById(R.id.right_chat_textview);
+                righChatImageview = itemView.findViewById(R.id.right_chat_imageview);
+                leftChatImageview = itemView.findViewById(R.id.left_chat_imageview);
             }
         }
     }
