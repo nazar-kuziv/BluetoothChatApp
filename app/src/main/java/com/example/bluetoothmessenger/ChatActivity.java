@@ -16,6 +16,8 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -314,6 +316,18 @@ public class ChatActivity extends AppCompatActivity {
                 rightChatTextView = itemView.findViewById(R.id.right_chat_textview);
                 righChatImageview = itemView.findViewById(R.id.right_chat_imageview);
                 leftChatImageview = itemView.findViewById(R.id.left_chat_imageview);
+
+                righChatImageview.setOnClickListener(v -> openFullScreenImage(((BitmapDrawable)righChatImageview.getDrawable()).getBitmap()));
+
+                leftChatImageview.setOnClickListener(v -> openFullScreenImage(((BitmapDrawable)leftChatImageview.getDrawable()).getBitmap()));
+            }
+            private void openFullScreenImage(Bitmap bitmap) {
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos);
+                byte[] imageInByte = baos.toByteArray();
+                Intent intent = new Intent(itemView.getContext(), FullScreenImageActivity.class);
+                intent.putExtra(IMAGE_MESSAGE, imageInByte);
+                itemView.getContext().startActivity(intent);
             }
         }
     }
