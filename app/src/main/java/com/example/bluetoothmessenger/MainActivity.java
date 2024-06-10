@@ -9,11 +9,13 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -83,9 +85,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void deleteContactFromDB(String macAddress) {
-        new Thread(() -> {
-            messageDAO.deleteAllMessagesFromUser(macAddress);
-        }).start();
+        new Thread(() -> messageDAO.deleteAllMessagesFromUser(macAddress)).start();
+    }
+
+    public void changeContactName(String macAddress, String newName) {
+        new Thread(() -> messageDAO.changeUserName(macAddress, newName)).start();
     }
 
     public static class ContactsAdapter extends RecyclerView.Adapter<ContactsAdapter.ViewHolder> {
@@ -127,7 +131,27 @@ public class MainActivity extends AppCompatActivity {
             });
 
             holder.editBtn.setOnClickListener(v -> {
+                AlertDialog.Builder builder = new AlertDialog.Builder(mainActivity);
+                LayoutInflater inflater = LayoutInflater.from(mainActivity);
+                View dialogView = inflater.inflate(R.layout.edit_contact_name_dialog, null);
+                builder.setView(dialogView);
 
+                EditText editContactName = dialogView.findViewById(R.id.new_contact_name);
+                editContactName.setText(device.getName());
+
+                builder.setTitle("Edit contact name")
+                        .setPositiveButton("Save", (dialog, which) -> {
+                            String newName = editContactName.getText().toString();
+                            if (!newName.isEmpty()) {
+                                device.setName(newName);
+                                notifyItemChanged(position);
+                                mainActivity.changeContactName(device.getMACaddress(), newName);
+                            }
+                        })
+                        .setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
+
+                AlertDialog dialog = builder.create();
+                dialog.show();
             });
         }
 

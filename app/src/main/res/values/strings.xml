@@ -16,4 +16,5 @@
     <string name="edit_name">Edit name</string>
     <string name="delete_contact">Delete contact</string>
     <string name="look_for_bluetooth_devices">Look for bluetooth devices</string>
+    <string name="enter_a_new_name">Enter a new name</string>
 </resources>

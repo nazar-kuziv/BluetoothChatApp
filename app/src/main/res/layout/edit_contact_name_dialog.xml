@@ -1,0 +1,17 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:layout_marginHorizontal="30dp"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <EditText
+        android:id="@+id/new_contact_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/enter_a_new_name"
+        android:importantForAutofill="no"
+        android:layout_gravity="center_vertical"
+        android:inputType="textMultiLine"
+        android:maxLength="25"/>
+</LinearLayout>
