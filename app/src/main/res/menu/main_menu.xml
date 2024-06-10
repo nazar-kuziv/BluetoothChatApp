@@ -2,6 +2,12 @@
 <menu xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:android="http://schemas.android.com/apk/res/android">
     <item
+        android:id="@+id/search_contact"
+        android:icon="@drawable/search"
+        android:title="@string/search_contact_by_name"
+        app:showAsAction="ifRoom|collapseActionView"
+        app:actionViewClass="androidx.appcompat.widget.SearchView" />
+    <item
         android:id="@+id/scan"
         android:icon="@drawable/bluetooth"
         android:title="@string/look_for_bluetooth_devices"

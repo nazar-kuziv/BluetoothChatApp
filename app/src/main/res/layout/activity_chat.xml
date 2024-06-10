@@ -28,7 +28,7 @@
             android:layout_marginBottom="4dp"
             android:background="@drawable/edit_text"
             android:elevation="4dp"
-            android:hint="@string/messageDB"
+            android:hint="@string/message"
             android:padding="10dp"
             app:layout_constraintEnd_toStartOf="@+id/buttonPanel"
             app:layout_constraintStart_toStartOf="parent"

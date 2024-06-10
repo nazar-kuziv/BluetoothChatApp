@@ -15,8 +15,9 @@ public interface MessageDAO {
     @Query("DELETE FROM MessageDB WHERE interlocutor_mac_address = :macAddress")
     void deleteAllMessagesFromUser(String macAddress);
     @Query("SELECT interlocutor_mac_address AS MACaddress, interlocutor_name AS name " +
-            "FROM MessageDB " +
-            "WHERE time = (SELECT MAX(time) FROM MessageDB AS subQuery WHERE subQuery.interlocutor_mac_address = MessageDB.interlocutor_mac_address) " +
+            "FROM MessageDB AS m1 " +
+            "WHERE time = (SELECT MAX(time) FROM MessageDB AS m2 WHERE m2.interlocutor_mac_address = m1.interlocutor_mac_address) " +
+            "GROUP BY interlocutor_mac_address " +
             "ORDER BY time DESC")
     List<BluetoothContact> getUniqueInterlocutors();
     @Query("UPDATE MessageDB SET interlocutor_name = :newName WHERE interlocutor_mac_address = :macAddress")

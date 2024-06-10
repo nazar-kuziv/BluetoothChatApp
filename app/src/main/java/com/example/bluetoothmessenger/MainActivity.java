@@ -10,6 +10,8 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.Filter;
+import android.widget.Filterable;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
@@ -17,6 +19,7 @@ import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SearchView;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -27,9 +30,11 @@ import androidx.room.Room;
 import com.example.bluetoothmessenger.data.BluetoothContact;
 import com.example.bluetoothmessenger.roomDB.AppDatabase;
 import com.example.bluetoothmessenger.roomDB.MessageDAO;
+import com.example.bluetoothmessenger.roomDB.MessageDB;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class MainActivity extends AppCompatActivity {
     private ContactsAdapter contactsAdapter;
@@ -46,10 +51,43 @@ public class MainActivity extends AppCompatActivity {
             return insets;
         });
         messageDAO = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "bluetooth-messenger-db").build().messageDAO();
+//        setUpDB();
         contactsAdapter = new ContactsAdapter(this);
         RecyclerView recyclerView = findViewById(R.id.contacts);
         recyclerView.setAdapter(contactsAdapter);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
+    }
+
+
+    public void setUpDB(){
+        byte [] message = "Hello".getBytes();
+        new Thread(() -> {
+            messageDAO.insert(new MessageDB("00:11:22:33:FF:EE", "ATest", true, true, message, "00:00:00"));
+            messageDAO.insert(new MessageDB("01:12:23:34:FF:EF", "BTest", false, true, message, "00:01:00"));
+            messageDAO.insert(new MessageDB("02:13:24:35:FF:F0", "CTest", true, false, message, "00:02:00"));
+            messageDAO.insert(new MessageDB("03:14:25:36:FF:F1", "DTest", false, false, message, "00:03:00"));
+            messageDAO.insert(new MessageDB("04:15:26:37:FF:F2", "ETest", true, true, message, "00:04:00"));
+            messageDAO.insert(new MessageDB("05:16:27:38:FF:F3", "FTest", false, true, message, "00:05:00"));
+            messageDAO.insert(new MessageDB("06:17:28:39:FF:F4", "GTest", true, false, message, "00:06:00"));
+            messageDAO.insert(new MessageDB("07:18:29:40:FF:F5", "HTest", false, false, message, "00:07:00"));
+            messageDAO.insert(new MessageDB("08:19:30:41:FF:F6", "ITest", true, true, message, "00:08:00"));
+            messageDAO.insert(new MessageDB("09:20:31:42:FF:F7", "JTest", false, true, message, "00:09:00"));
+            messageDAO.insert(new MessageDB("10:21:32:43:FF:F8", "KTest", true, false, message, "00:10:00"));
+            messageDAO.insert(new MessageDB("11:22:33:44:FF:F9", "LTest", false, false, message, "00:11:00"));
+            messageDAO.insert(new MessageDB("12:23:34:45:FF:FA", "MTest", true, true, message, "00:12:00"));
+            messageDAO.insert(new MessageDB("13:24:35:46:FF:FB", "NTest", false, true, message, "00:13:00"));
+            messageDAO.insert(new MessageDB("14:25:36:47:FF:FC", "OTest", true, false, message, "00:14:00"));
+            messageDAO.insert(new MessageDB("15:26:37:48:FF:FD", "abcTest", false, false, message, "00:15:00"));
+            messageDAO.insert(new MessageDB("16:27:38:49:FF:FE", "AbTest", true, true, message, "00:16:00"));
+            messageDAO.insert(new MessageDB("17:28:39:50:FF:FF", "abTest", false, true, message, "00:17:00"));
+            messageDAO.insert(new MessageDB("18:29:40:51:FF:EF", "bTest", true, false, message, "00:18:00"));
+            messageDAO.insert(new MessageDB("19:30:41:52:FF:F0", "aTest", false, false, message, "00:19:00"));
+        }).start();
+    }
+
+    public void setNoContactsTextVisibility(int visibility) {
+        TextView noContactsText = findViewById(R.id.no_contacts_text);
+        noContactsText.setVisibility(visibility);
     }
 
     @Override
@@ -61,7 +99,24 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.main_menu, menu);
-        setTitle("Find a device");
+
+        MenuItem menuItem = menu.findItem(R.id.search_contact);
+        SearchView searchView = (SearchView) menuItem.getActionView();
+        Objects.requireNonNull(searchView).setQueryHint("Type here");
+
+        Objects.requireNonNull(searchView).setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                contactsAdapter.getFilter().filter(query);
+                return true;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                contactsAdapter.getFilter().filter(newText);
+                return true;
+            }
+        });
         return true;
     }
 
@@ -92,14 +147,16 @@ public class MainActivity extends AppCompatActivity {
         new Thread(() -> messageDAO.changeUserName(macAddress, newName)).start();
     }
 
-    public static class ContactsAdapter extends RecyclerView.Adapter<ContactsAdapter.ViewHolder> {
+    public static class ContactsAdapter extends RecyclerView.Adapter<ContactsAdapter.ViewHolder> implements Filterable {
         private final MainActivity mainActivity;
         private final List<BluetoothContact> contacts;
+        private final List<BluetoothContact> contactsFull;
         private BluetoothScanActivity.DevicesAdapter.OnItemClickListener onItemListener;
 
         public ContactsAdapter(MainActivity mainActivity) {
             this.mainActivity = mainActivity;
             contacts = new ArrayList<>();
+            contactsFull = new ArrayList<>();
         }
 
         @NonNull
@@ -125,8 +182,11 @@ public class MainActivity extends AppCompatActivity {
             });
 
             holder.deleteBtn.setOnClickListener(v -> {
-                contacts.remove(position);
+                BluetoothContact contactFromFull = contacts.get(position);
+                contacts.remove(contactFromFull);
+                contactsFull.remove(contactFromFull);
                 notifyDataSetChanged();
+                setNoContactsTextVisibility();
                 mainActivity.deleteContactFromDB(device.getMACaddress());
             });
 
@@ -143,6 +203,12 @@ public class MainActivity extends AppCompatActivity {
                         .setPositiveButton("Save", (dialog, which) -> {
                             String newName = editContactName.getText().toString();
                             if (!newName.isEmpty()) {
+                                for (BluetoothContact contactFromFull : contactsFull) {
+                                    if (contactFromFull.getMACaddress().equals(device.getMACaddress())) {
+                                        contactFromFull.setName(newName);
+                                        break;
+                                    }
+                                }
                                 device.setName(newName);
                                 notifyItemChanged(position);
                                 mainActivity.changeContactName(device.getMACaddress(), newName);
@@ -163,26 +229,74 @@ public class MainActivity extends AppCompatActivity {
         @SuppressLint("NotifyDataSetChanged")
         public void add(String name, String MACaddress) {
             contacts.add(new BluetoothContact(name, MACaddress));
+            contactsFull.add(new BluetoothContact(name, MACaddress));
             notifyDataSetChanged();
+            setNoContactsTextVisibility();
+        }
+
+        public void setNoContactsTextVisibility() {
+            if(contacts.isEmpty()){
+                mainActivity.setNoContactsTextVisibility(View.VISIBLE);
+            } else {
+                mainActivity.setNoContactsTextVisibility(View.GONE);
+            }
         }
 
         @SuppressLint("NotifyDataSetChanged")
         public void addList(List<BluetoothContact> contacts) {
             this.clear();
             this.contacts.addAll(contacts);
+            this.contactsFull.addAll(contacts);
             notifyDataSetChanged();
+            setNoContactsTextVisibility();
         }
 
         @SuppressLint("NotifyDataSetChanged")
         public void clear() {
             contacts.clear();
+            contactsFull.clear();
             notifyDataSetChanged();
+            setNoContactsTextVisibility();
         }
 
         public void setOnItemClickListener(BluetoothScanActivity.DevicesAdapter.OnItemClickListener listener) {
             onItemListener = listener;
         }
 
+        @Override
+        public Filter getFilter() {
+            return contactFilter;
+        }
+
+        private final Filter contactFilter = new Filter() {
+            @Override
+            protected FilterResults performFiltering(CharSequence constraint) {
+                List<BluetoothContact> filteredList = new ArrayList<>();
+                if (constraint == null || constraint.length() == 0) {
+                    filteredList.addAll(contactsFull);
+                } else {
+                    String filterPattern = constraint.toString().toLowerCase().trim();
+                    for (BluetoothContact contact : contactsFull) {
+                        if (contact.getName().toLowerCase().startsWith(filterPattern)) {
+                            filteredList.add(contact);
+                        }
+                    }
+                }
+                FilterResults results = new FilterResults();
+                results.values = filteredList;
+                return results;
+            }
+
+            @SuppressLint("NotifyDataSetChanged")
+            @SuppressWarnings("unchecked")
+            @Override
+            protected void publishResults(CharSequence constraint, FilterResults results) {
+                contacts.clear();
+                contacts.addAll((List<BluetoothContact>) results.values);
+                notifyDataSetChanged();
+                setNoContactsTextVisibility();
+            }
+        };
         public interface OnItemClickListener {
             void onItemClick(String name, String macAddress);
         }
@@ -190,7 +304,6 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onAttachedToRecyclerView(@NonNull RecyclerView recyclerView) {
             super.onAttachedToRecyclerView(recyclerView);
-
         }
 
         public static class ViewHolder extends RecyclerView.ViewHolder {
