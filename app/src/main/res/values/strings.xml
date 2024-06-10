@@ -4,7 +4,7 @@
     <string name="other_devices">OTHER DEVICES</string>
     <string name="back_to_previous_screen">Back to previous screen</string>
     <string name="scan_for_devices">Scan for devices</string>
-    <string name="message">Message</string>
+    <string name="messageDB">Message</string>
     <string name="send_image_button">Send image button</string>
     <string name="paint_your_own_image">Paint your own image</string>
     <string name="erase_an_image">Erase an image</string>
@@ -12,5 +12,8 @@
     <string name="choose_color">Choose color</string>
     <string name="erase_picture">Erase picture</string>
     <string name="send_picture">Send Picture</string>
-    <string name="image_from_message">Image from message</string>
+    <string name="image_from_message">Image from messageDB</string>
+    <string name="edit_name">Edit name</string>
+    <string name="delete_contact">Delete contact</string>
+    <string name="look_for_bluetooth_devices">Look for bluetooth devices</string>
 </resources>

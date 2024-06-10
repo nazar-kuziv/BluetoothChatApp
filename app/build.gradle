@@ -14,6 +14,12 @@ android {
         versionName "1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        javaCompileOptions {
+            annotationProcessorOptions {
+                arguments += ["room.schemaLocation": "$projectDir/schemas".toString()]
+            }
+        }
     }
 
     buildTypes {
@@ -29,6 +35,9 @@ android {
 }
 
 dependencies {
+    def room_version = "2.6.1"
+    implementation libs.room.runtime
+    annotationProcessor "androidx.room:room-compiler:$room_version"
     //noinspection UseTomlInstead
     implementation 'com.github.MikeOrtiz:TouchImageView:1.4.1'
     implementation libs.signature.view

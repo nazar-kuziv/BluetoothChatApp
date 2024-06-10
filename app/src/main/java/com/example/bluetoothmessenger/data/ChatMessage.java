@@ -15,10 +15,10 @@ public class ChatMessage {
         this.wroteByUser = wroteByUser;
         if(type.equals(TEXT_MESSAGE)){
             this.message = new String(message);
-            Log.e("Message", "Text: " + this.message);
+            Log.e("MessageDB", "Text: " + this.message);
         }else if(type.equals(IMAGE_MESSAGE)){
             this.image = convertCompressedByteArrayToBitmap(message);
-            Log.e("Message", "Image: " + this.message);
+            Log.e("MessageDB", "Image: " + this.message);
         }
     }
 

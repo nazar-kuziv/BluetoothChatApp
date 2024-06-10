@@ -193,7 +193,7 @@ public class BluetoothScanActivity extends AppCompatActivity {
             enableBluetoothForPaired();
         } else {
             if (AndroidBluetoothController.chatUtils == null) {
-                AndroidBluetoothController.chatUtils = new ChatUtils(handler);
+                AndroidBluetoothController.chatUtils = new ChatUtils(handler, getApplicationContext());
             } else {
                 AndroidBluetoothController.chatUtils.finish();
                 AndroidBluetoothController.chatUtils.setHandler(handler);

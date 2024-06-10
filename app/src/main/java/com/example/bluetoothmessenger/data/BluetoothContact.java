@@ -5,15 +5,19 @@ import java.util.Objects;
 
 public class BluetoothContact implements Serializable {
     private String name;
-    private final String MACaddress;
+    private String MACaddress;
 
-    public BluetoothContact(String name, String address) {
+    public BluetoothContact(String name, String MACaddress) {
         this.name = name;
-        this.MACaddress = address;
+        this.MACaddress = MACaddress;
     }
 
     public String getMACaddress() {
         return MACaddress;
+    }
+
+    public void setMACaddress(String MACaddress) {
+        this.MACaddress = MACaddress;
     }
 
     public String getName() {
