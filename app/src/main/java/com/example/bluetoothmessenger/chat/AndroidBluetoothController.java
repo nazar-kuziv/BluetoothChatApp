@@ -11,27 +11,39 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.location.LocationManager;
+import android.util.Log;
 import android.widget.Toast;
 
 import androidx.core.content.ContextCompat;
+import androidx.room.Room;
 
 import com.example.bluetoothmessenger.data.BluetoothContact;
 import com.example.bluetoothmessenger.data.BluetoothContactConverter;
+import com.example.bluetoothmessenger.roomDB.AppDatabase;
+import com.example.bluetoothmessenger.roomDB.MessageDAO;
 
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 @SuppressLint({"MissingPermission", "StaticFieldLeak"})
 public class AndroidBluetoothController{
     private final Context context;
     private final BluetoothAdapter bluetoothAdapter;
+    private final MessageDAO messageDAO;
     private final ArrayList<BluetoothContact> scannedDevices = new ArrayList<>();
+    private final Object scannedDevicesLock = new Object();
     private final ArrayList<BluetoothContact> pairedDevices = new ArrayList<>();
     public static ChatUtils chatUtils;
 
     public AndroidBluetoothController(Context context) {
         this.context = context;
+        this.messageDAO = Room.databaseBuilder(context, AppDatabase.class, "bluetooth-messenger-db").build().messageDAO();
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (bluetoothAdapter == null) {
             Toast.makeText(context, "Bluetooth is not supported on this device", Toast.LENGTH_SHORT).show();
@@ -64,7 +76,14 @@ public class AndroidBluetoothController{
         pairedDevices.clear();
         Set<BluetoothDevice> devices = bluetoothAdapter.getBondedDevices();
         for (BluetoothDevice device : devices) {
-            pairedDevices.add(BluetoothContactConverter.toBluetoothContact(device));
+            String customName = getDeviceCustomName(device.getAddress());
+            if(customName != null){
+                BluetoothContact customDevice = new BluetoothContact(customName, device.getAddress());
+                Log.e("Custom device", customDevice.getName() + " " + customDevice.getMACaddress());
+                pairedDevices.add(customDevice);
+            }else{
+                pairedDevices.add(BluetoothContactConverter.toBluetoothContact(device));
+            }
         }
     }
 
@@ -93,26 +112,49 @@ public class AndroidBluetoothController{
         }
     }
 
+    public String getDeviceCustomName(String deviceMACaddress) {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        Callable<String> callable = () -> messageDAO.getUserNameByMacAddress(deviceMACaddress);
+
+        Future<String> future = executor.submit(callable);
+        String deviceName = null;
+        try {
+            deviceName = future.get();
+        } catch (InterruptedException | ExecutionException ignored) {
+            // Ignore exceptions
+        } finally {
+            executor.shutdown();
+        }
+
+        return deviceName;
+    }
+
     public final BroadcastReceiver receiver = new BroadcastReceiver() {
         public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            if (BluetoothDevice.ACTION_FOUND.equals(action)) {
-                BluetoothContact device = BluetoothContactConverter.toBluetoothContact(Objects.requireNonNull(intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)));
-                if (!scannedDevices.contains(device) && !pairedDevices.contains(device) && device.getName() != null) {
+            synchronized (scannedDevicesLock) {
+                String action = intent.getAction();
+                if (BluetoothDevice.ACTION_FOUND.equals(action)) {
+                    BluetoothContact device = BluetoothContactConverter.toBluetoothContact(Objects.requireNonNull(intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)));
+                    if (!scannedDevices.contains(device) && !pairedDevices.contains(device) && device.getName() != null) {
+                        String customName = getDeviceCustomName(device.getMACaddress());
+                        if (customName != null) {
+                            device.setName(customName);
+                        }
                         scannedDevices.add(device);
                         Intent resultIntent = new Intent(NEW_DEVICE_FOUND);
-                        resultIntent.putExtra(DISCOVERED_DEVICE_NAME, device.getName());
                         resultIntent.putExtra(DISCOVERED_DEVICE_ADDRESS, device.getMACaddress());
+                        resultIntent.putExtra(DISCOVERED_DEVICE_NAME, device.getName());
                         context.sendBroadcast(resultIntent);
+                    }
+                } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)) {
+                    Intent resultIntent = new Intent(DISCOVERY_FINISHED);
+                    context.sendBroadcast(resultIntent);
+//                    Toast.makeText(context, "Discovery finished", Toast.LENGTH_SHORT).show();
+                } else if (BluetoothAdapter.ACTION_DISCOVERY_STARTED.equals(action)) {
+                    Intent resultIntent = new Intent(DISCOVERY_STARTED);
+                    context.sendBroadcast(resultIntent);
+                    Toast.makeText(context, "Discovery started", Toast.LENGTH_SHORT).show();
                 }
-            }else if(BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)){
-                Intent resultIntent = new Intent(DISCOVERY_FINISHED);
-                context.sendBroadcast(resultIntent);
-                Toast.makeText(context, "Discovery finished", Toast.LENGTH_SHORT).show();
-            }else if(BluetoothAdapter.ACTION_DISCOVERY_STARTED.equals(action)){
-                Intent resultIntent = new Intent(DISCOVERY_STARTED);
-                context.sendBroadcast(resultIntent);
-                Toast.makeText(context, "Discovery started", Toast.LENGTH_SHORT).show();
             }
         }
     };
