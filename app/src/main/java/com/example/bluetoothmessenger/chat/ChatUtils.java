@@ -162,6 +162,7 @@ public class ChatUtils {
             }
             communicationThread.stopSendingImage();
             handler.obtainMessage(IMAGE_WRITE, img.length, -1, img).sendToTarget();
+            savePhotoMessageInDB(true, img);
         }
     }
 
@@ -323,6 +324,7 @@ public class ChatUtils {
                         if(imgSize <= 0){
                             handler.obtainMessage(IMAGE_READ, img.length, -1, img).sendToTarget();
                             areWeRetrievingImage = false;
+                            savePhotoMessageInDB(false, img);
                         }
                     }else if(buffer[0] == IMAGE_MESSAGE_BYTE) {
                         areWeRetrievingImage = true;
@@ -333,14 +335,7 @@ public class ChatUtils {
                         byte[] textMessage = new byte[bytes - 1];
                         System.arraycopy(buffer, 1, textMessage, 0, bytes - 1);
                         handler.obtainMessage(MESSAGE_READ, bytes - 1, -1, textMessage).sendToTarget();
-                        MessageDB message = new MessageDB();
-                        message.message = textMessage;
-                        message.sentByUser = false;
-                        message.textMessage = true;
-                        message.time = String.valueOf(System.currentTimeMillis());
-                        message.interlocutorMACaddress = connectedDeviceMACaddress;
-                        message.interlocutorName = connectedDeviceName;
-                        controllerDB.insertMessage(message);
+                        saveTextMessageInDB(false, textMessage);
                     }
                 } catch (Exception e) {
                     Log.e("CommunicationThread", "Error occurred when reading from input stream", e);
@@ -353,8 +348,10 @@ public class ChatUtils {
         public void write(byte[] buffer){
             try{
                 outputStream.write(buffer);
-                if(!areWeSendingImage)
+                if(!areWeSendingImage){
                     handler.obtainMessage(MESSAGE_WRITE, -1, -1, buffer).sendToTarget();
+                    saveTextMessageInDB(true, buffer);
+                }
             }catch (Exception e){
                 Log.e("CommunicationThread", "Error occurred when writing to output stream", e);
             }
@@ -376,6 +373,14 @@ public class ChatUtils {
         }
     }
 
+    private void saveTextMessageInDB(boolean sentByUser, byte[] message) {
+        MessageDB messageDB = new MessageDB(connectedDeviceMACaddress, connectedDeviceName, sentByUser, true, message, String.valueOf(System.currentTimeMillis()));
+        controllerDB.insertMessage(messageDB);
+    }
+    private void savePhotoMessageInDB(boolean sentByUser, byte[] message) {
+        MessageDB messageDB = new MessageDB(connectedDeviceMACaddress, connectedDeviceName, sentByUser, false, message, String.valueOf(System.currentTimeMillis()));
+        controllerDB.insertMessage(messageDB);
+    }
     public static final int STATE_NONE = 1;
     public static final int STATE_LISTEN = 2;
     public static final int STATE_CONNECTING = 3;

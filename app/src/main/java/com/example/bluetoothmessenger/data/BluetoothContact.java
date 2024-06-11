@@ -16,6 +16,8 @@ public class BluetoothContact implements Serializable {
         return MACaddress;
     }
 
+    //Never use setMACaddress, it has been added only because of the need of the RoomDB
+    @SuppressWarnings("unused")
     public void setMACaddress(String MACaddress) {
         this.MACaddress = MACaddress;
     }

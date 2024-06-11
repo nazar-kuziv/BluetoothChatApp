@@ -78,7 +78,7 @@ public class ControllerDB {
     }
 
     public void insertMessage(MessageDB messageDB) {
-        messageDAO.insert(messageDB);
+        new Thread(() -> messageDAO.insert(messageDB)).start();
     }
 }
 

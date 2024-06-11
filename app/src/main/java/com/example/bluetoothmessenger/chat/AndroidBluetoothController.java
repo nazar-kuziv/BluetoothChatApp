@@ -11,7 +11,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.location.LocationManager;
-import android.util.Log;
 import android.widget.Toast;
 
 import androidx.core.content.ContextCompat;
@@ -71,7 +70,6 @@ public class AndroidBluetoothController{
             String customName = controllerDB.getDeviceCustomName(device.getAddress());
             if(customName != null){
                 BluetoothContact customDevice = new BluetoothContact(customName, device.getAddress());
-                Log.e("Custom device", customDevice.getName() + " " + customDevice.getMACaddress());
                 pairedDevices.add(customDevice);
             }else{
                 pairedDevices.add(BluetoothContactConverter.toBluetoothContact(device));
