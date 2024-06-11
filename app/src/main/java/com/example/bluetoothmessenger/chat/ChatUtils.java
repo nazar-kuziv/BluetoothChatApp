@@ -8,16 +8,12 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
-import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
 
-import androidx.room.Room;
-
-import com.example.bluetoothmessenger.roomDB.AppDatabase;
-import com.example.bluetoothmessenger.roomDB.MessageDAO;
+import com.example.bluetoothmessenger.roomDB.ControllerDB;
 import com.example.bluetoothmessenger.roomDB.MessageDB;
 
 import java.io.InputStream;
@@ -27,7 +23,7 @@ import java.util.UUID;
 @SuppressLint("MissingPermission")
 public class ChatUtils {
     private final BluetoothAdapter bluetoothAdapter;
-    private final AppDatabase db;
+    private final ControllerDB controllerDB = ControllerDB.getInstance();
     private ConnectThread connectThread;
     private ListeningThread listeningThread;
     private CommunicationThread communicationThread;
@@ -36,11 +32,10 @@ public class ChatUtils {
     private String connectedDeviceName;
     private int state;
 
-    public ChatUtils(Handler handler, Context context) {
+    public ChatUtils(Handler handler) {
         this.handler = handler;
-        this.db = Room.databaseBuilder(context, AppDatabase.class, "bluetooth-messenger-db").build();
-        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        state = STATE_NONE;
+        this.bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        this.state = STATE_NONE;
     }
 
     public void setHandler(Handler handler) {
@@ -120,13 +115,18 @@ public class ChatUtils {
 
         Message msg = handler.obtainMessage(DEVICE_NAME_MESSAGE);
         Bundle bundle = new Bundle();
-        this.connectedDeviceName = device.getName();
-        bundle.putString(CONNECTED_DEVICE_NAME, connectedDeviceName);
         this.connectedDeviceMACaddress = device.getAddress();
         bundle.putString(CONNECTED_DEVICE_ADDRESS, connectedDeviceMACaddress);
+        String deviceCustomName = controllerDB.getDeviceCustomName(connectedDeviceMACaddress);
+        if(deviceCustomName != null){
+            bundle.putString(CONNECTED_DEVICE_NAME, deviceCustomName);
+            this.connectedDeviceName = deviceCustomName;
+        }else{
+            bundle.putString(CONNECTED_DEVICE_NAME, device.getName());
+            this.connectedDeviceName = device.getName();
+        }
         msg.setData(bundle);
         handler.sendMessage(msg);
-
         setState(STATE_CONNECTED);
     }
 
@@ -333,7 +333,6 @@ public class ChatUtils {
                         byte[] textMessage = new byte[bytes - 1];
                         System.arraycopy(buffer, 1, textMessage, 0, bytes - 1);
                         handler.obtainMessage(MESSAGE_READ, bytes - 1, -1, textMessage).sendToTarget();
-                        MessageDAO messageDAO = db.messageDAO();
                         MessageDB message = new MessageDB();
                         message.message = textMessage;
                         message.sentByUser = false;
@@ -341,7 +340,7 @@ public class ChatUtils {
                         message.time = String.valueOf(System.currentTimeMillis());
                         message.interlocutorMACaddress = connectedDeviceMACaddress;
                         message.interlocutorName = connectedDeviceName;
-                        messageDAO.insert(message);
+                        controllerDB.insertMessage(message);
                     }
                 } catch (Exception e) {
                     Log.e("CommunicationThread", "Error occurred when reading from input stream", e);

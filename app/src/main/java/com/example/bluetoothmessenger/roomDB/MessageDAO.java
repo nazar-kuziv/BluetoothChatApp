@@ -20,6 +20,8 @@ public interface MessageDAO {
             "GROUP BY interlocutor_mac_address " +
             "ORDER BY time DESC")
     List<BluetoothContact> getUniqueInterlocutors();
+    @Query("SELECT interlocutor_name FROM MessageDB WHERE interlocutor_mac_address = :macAddress LIMIT 1")
+    String getUserNameByMacAddress(String macAddress);
     @Query("UPDATE MessageDB SET interlocutor_name = :newName WHERE interlocutor_mac_address = :macAddress")
     void changeUserName(String macAddress, String newName);
     @Insert
