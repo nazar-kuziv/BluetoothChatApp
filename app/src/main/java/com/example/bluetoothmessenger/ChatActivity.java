@@ -91,7 +91,6 @@ public class ChatActivity extends AppCompatActivity {
         setChatAdapter();
         setPreviousMessagesIfExist();
 
-
         editText.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {
@@ -193,6 +192,7 @@ public class ChatActivity extends AppCompatActivity {
                     }
                 }, 100);
             }
+
             @Override
             public void onChanged() {
                 chatRecyclerView.postDelayed(() -> chatRecyclerView.scrollToPosition(chatAdapter.getItemCount() - 1), 100);
@@ -318,12 +318,14 @@ public class ChatActivity extends AppCompatActivity {
             messages.add(new ChatMessage(message, wroteByUser, type));
             notifyItemInserted(messages.size() - 1);
         }
+
         @SuppressLint("NotifyDataSetChanged")
         public void addPreviousMessages(List<ChatMessage> previousMessages) {
             messages.addAll(previousMessages);
             notifyDataSetChanged();
 
         }
+
         public static class ChatViewHolder extends RecyclerView.ViewHolder {
             LinearLayout leftChatLayout, rightChatLayout;
             TextView leftChatTextView, rightChatTextView;
@@ -339,10 +341,11 @@ public class ChatActivity extends AppCompatActivity {
                 righChatImageview = itemView.findViewById(R.id.right_chat_imageview);
                 leftChatImageview = itemView.findViewById(R.id.left_chat_imageview);
 
-                righChatImageview.setOnClickListener(v -> openFullScreenImage(((BitmapDrawable)righChatImageview.getDrawable()).getBitmap()));
+                righChatImageview.setOnClickListener(v -> openFullScreenImage(((BitmapDrawable) righChatImageview.getDrawable()).getBitmap()));
 
-                leftChatImageview.setOnClickListener(v -> openFullScreenImage(((BitmapDrawable)leftChatImageview.getDrawable()).getBitmap()));
+                leftChatImageview.setOnClickListener(v -> openFullScreenImage(((BitmapDrawable) leftChatImageview.getDrawable()).getBitmap()));
             }
+
             private void openFullScreenImage(Bitmap bitmap) {
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos);

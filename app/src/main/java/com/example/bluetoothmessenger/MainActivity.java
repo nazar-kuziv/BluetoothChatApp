@@ -1,9 +1,20 @@
 package com.example.bluetoothmessenger;
 
+import static com.example.bluetoothmessenger.chat.AndroidBluetoothController.BLUETOOTH_ENABLE_FOR_PAIRED;
+import static com.example.bluetoothmessenger.chat.ChatUtils.CONNECTED_DEVICE_NAME;
+import static com.example.bluetoothmessenger.chat.ChatUtils.DEVICE_NAME_MESSAGE;
+import static com.example.bluetoothmessenger.chat.ChatUtils.MESSAGE_STATE_CHANGED;
+import static com.example.bluetoothmessenger.chat.ChatUtils.TOAST;
+import static com.example.bluetoothmessenger.chat.ChatUtils.TOAST_MESSAGE;
+
 import android.annotation.SuppressLint;
+import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -14,6 +25,7 @@ import android.widget.Filter;
 import android.widget.Filterable;
 import android.widget.ImageButton;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
@@ -26,6 +38,8 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.bluetoothmessenger.chat.AndroidBluetoothController;
+import com.example.bluetoothmessenger.chat.ChatUtils;
 import com.example.bluetoothmessenger.data.BluetoothContact;
 import com.example.bluetoothmessenger.roomDB.ControllerDB;
 import com.example.bluetoothmessenger.roomDB.MessageDB;
@@ -35,8 +49,10 @@ import java.util.List;
 import java.util.Objects;
 
 public class MainActivity extends AppCompatActivity {
+    private AndroidBluetoothController bluetoothController;
     private ContactsAdapter contactsAdapter;
     private ControllerDB controllerDB;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -48,13 +64,72 @@ public class MainActivity extends AppCompatActivity {
             return insets;
         });
         controllerDB = ControllerDB.getInstance(getApplicationContext());
-//        setUpDB();
         contactsAdapter = new ContactsAdapter(this);
         RecyclerView recyclerView = findViewById(R.id.contacts);
         recyclerView.setAdapter(contactsAdapter);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        bluetoothController = new AndroidBluetoothController(this);
     }
 
+    @Override
+    protected void onResume() {
+        showListOfContacts();
+        startListening();
+        super.onResume();
+    }
+
+
+    private void startListening() {
+        if (!bluetoothController.isBluetoothEnabled()) {
+            enableBluetooth();
+        } else {
+            if (AndroidBluetoothController.chatUtils == null) {
+                AndroidBluetoothController.chatUtils = new ChatUtils(handler);
+            } else {
+                AndroidBluetoothController.chatUtils.finish();
+                AndroidBluetoothController.chatUtils.setHandler(handler);
+            }
+            AndroidBluetoothController.chatUtils.startListening();
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private void enableBluetooth() {
+        Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+        startActivityForResult(enableBtIntent, BLUETOOTH_ENABLE_FOR_PAIRED);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == BLUETOOTH_ENABLE_FOR_PAIRED) {
+            if (resultCode != RESULT_OK) {
+                enableBluetooth();
+            } else {
+                startListening();
+            }
+        }
+    }
+
+    private final Handler handler = new Handler(msg -> {
+        switch (msg.what) {
+            case MESSAGE_STATE_CHANGED:
+                switch (msg.arg1) {
+                    case ChatUtils.STATE_CONNECTED:
+                        Log.e("STATE_CONNECTED", "Connected");
+                    case ChatUtils.STATE_CONNECTING:
+                        break;
+                }
+                break;
+            case DEVICE_NAME_MESSAGE:
+                Log.e("DEVICE_NAME_MESSAGE", Objects.requireNonNull(msg.getData().getString(CONNECTED_DEVICE_NAME)));
+                break;
+            case TOAST_MESSAGE:
+                Toast.makeText(MainActivity.this, msg.getData().getString(TOAST), Toast.LENGTH_SHORT).show();
+                break;
+        }
+        return false;
+    });
 
     public void setUpDB(){
         byte [] message = "Hello".getBytes();
@@ -85,12 +160,6 @@ public class MainActivity extends AppCompatActivity {
     public void setNoContactsTextVisibility(int visibility) {
         TextView noContactsText = findViewById(R.id.no_contacts_text);
         noContactsText.setVisibility(visibility);
-    }
-
-    @Override
-    protected void onResume() {
-        showListOfContacts();
-        super.onResume();
     }
 
     @Override
