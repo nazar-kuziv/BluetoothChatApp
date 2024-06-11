@@ -51,6 +51,8 @@ import com.example.bluetoothmessenger.chat.AndroidBluetoothController;
 import com.example.bluetoothmessenger.chat.ChatUtils;
 import com.example.bluetoothmessenger.data.BluetoothContact;
 import com.example.bluetoothmessenger.data.ChatMessage;
+import com.example.bluetoothmessenger.roomDB.ControllerDB;
+import com.example.bluetoothmessenger.roomDB.MessageDB;
 import com.github.dhaval2404.imagepicker.ImagePicker;
 
 import java.io.ByteArrayOutputStream;
@@ -60,6 +62,7 @@ import java.util.List;
 import java.util.Objects;
 
 public class ChatActivity extends AppCompatActivity {
+    private final ControllerDB controllerDB = ControllerDB.getInstance();
     private BluetoothContact contact;
     private ImageButton cameraButton;
     private ImageButton sendButton;
@@ -86,6 +89,8 @@ public class ChatActivity extends AppCompatActivity {
         paintButton = findViewById(R.id.paint_btn);
 
         setChatAdapter();
+        setPreviousMessagesIfExist();
+
 
         editText.addTextChangedListener(new TextWatcher() {
             @Override
@@ -188,7 +193,19 @@ public class ChatActivity extends AppCompatActivity {
                     }
                 }, 100);
             }
+            @Override
+            public void onChanged() {
+                chatRecyclerView.postDelayed(() -> chatRecyclerView.scrollToPosition(chatAdapter.getItemCount() - 1), 100);
+            }
         });
+    }
+
+    private void setPreviousMessagesIfExist() {
+        List<MessageDB> messagesFromDB = controllerDB.getMessagesFromUser(contact.getMACaddress());
+        if (messagesFromDB != null) {
+            List<ChatMessage> previousMessages = ChatMessage.convertFromMessageDB(messagesFromDB);
+            chatAdapter.addPreviousMessages(previousMessages);
+        }
     }
 
 
@@ -264,7 +281,7 @@ public class ChatActivity extends AppCompatActivity {
         public void onBindViewHolder(@NonNull ChatViewHolder holder, int position) {
             ChatMessage message = messages.get(position);
 
-            if (message.wroteByUser) {
+            if (message.sentByUser) {
                 holder.rightChatLayout.setVisibility(LinearLayout.VISIBLE);
                 holder.leftChatLayout.setVisibility(LinearLayout.GONE);
                 if (message.isTextMessage()) {
@@ -301,7 +318,12 @@ public class ChatActivity extends AppCompatActivity {
             messages.add(new ChatMessage(message, wroteByUser, type));
             notifyItemInserted(messages.size() - 1);
         }
+        @SuppressLint("NotifyDataSetChanged")
+        public void addPreviousMessages(List<ChatMessage> previousMessages) {
+            messages.addAll(previousMessages);
+            notifyDataSetChanged();
 
+        }
         public static class ChatViewHolder extends RecyclerView.ViewHolder {
             LinearLayout leftChatLayout, rightChatLayout;
             TextView leftChatTextView, rightChatTextView;

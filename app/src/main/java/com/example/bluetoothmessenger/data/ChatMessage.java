@@ -4,15 +4,20 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.util.Log;
 
+import com.example.bluetoothmessenger.roomDB.MessageDB;
+
+import java.util.ArrayList;
+import java.util.List;
+
 public class ChatMessage {
     private final String type;
     public String message;
     public Bitmap image;
-    public boolean wroteByUser;
+    public boolean sentByUser;
 
-    public ChatMessage(byte[] message, boolean wroteByUser, String type) {
+    public ChatMessage(byte[] message, boolean sentByUser, String type) {
         this.type = type;
-        this.wroteByUser = wroteByUser;
+        this.sentByUser = sentByUser;
         if(type.equals(TEXT_MESSAGE)){
             this.message = new String(message);
             Log.e("Message", "Text: " + this.message);
@@ -29,6 +34,18 @@ public class ChatMessage {
 
     public static Bitmap convertCompressedByteArrayToBitmap(byte[] src){
         return BitmapFactory.decodeByteArray(src, 0, src.length);
+    }
+
+    public static List<ChatMessage> convertFromMessageDB(List<MessageDB> messages){
+        List<ChatMessage> chatMessages = new ArrayList<>();
+        for(MessageDB messageDB : messages){
+            if(messageDB.textMessage){
+                chatMessages.add(new ChatMessage(messageDB.message, messageDB.sentByUser, TEXT_MESSAGE));
+            }else{
+                chatMessages.add(new ChatMessage(messageDB.message, messageDB.sentByUser, IMAGE_MESSAGE));
+            }
+        }
+        return chatMessages;
     }
 
     public static final int TEXT_MESSAGE_BYTE = 0;

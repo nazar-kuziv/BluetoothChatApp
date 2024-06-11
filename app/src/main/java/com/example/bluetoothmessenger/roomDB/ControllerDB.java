@@ -80,5 +80,22 @@ public class ControllerDB {
     public void insertMessage(MessageDB messageDB) {
         new Thread(() -> messageDAO.insert(messageDB)).start();
     }
+
+    public List<MessageDB> getMessagesFromUser(String macAddress) {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        Callable<List<MessageDB>> callable = () -> messageDAO.getAllMessagesForUser(macAddress);
+
+        Future<List<MessageDB>> future = executor.submit(callable);
+        List<MessageDB> messages = null;
+        try {
+            messages = future.get();
+        } catch (InterruptedException | ExecutionException ignored) {
+            // Ignore exceptions
+        } finally {
+            executor.shutdown();
+        }
+
+        return messages;
+    }
 }
 
