@@ -19,4 +19,5 @@
     <string name="enter_a_new_name">Enter a new name</string>
     <string name="search_contact_by_name">Search contact by name</string>
     <string name="no_contacts_available">No contacts available</string>
+    <string name="connect">Connect</string>
 </resources>

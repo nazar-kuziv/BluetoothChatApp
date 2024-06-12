@@ -1,6 +1,7 @@
 package com.example.bluetoothmessenger;
 
 import static com.example.bluetoothmessenger.chat.AndroidBluetoothController.BLUETOOTH_ENABLE_FOR_PAIRED;
+import static com.example.bluetoothmessenger.chat.ChatUtils.CONNECTED_DEVICE_ADDRESS;
 import static com.example.bluetoothmessenger.chat.ChatUtils.CONNECTED_DEVICE_NAME;
 import static com.example.bluetoothmessenger.chat.ChatUtils.DEVICE_NAME_MESSAGE;
 import static com.example.bluetoothmessenger.chat.ChatUtils.MESSAGE_STATE_CHANGED;
@@ -13,8 +14,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.Message;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -50,6 +49,7 @@ import java.util.Objects;
 
 public class MainActivity extends AppCompatActivity {
     private AndroidBluetoothController bluetoothController;
+    private BluetoothContact contact;
     private ContactsAdapter contactsAdapter;
     private ControllerDB controllerDB;
 
@@ -68,98 +68,21 @@ public class MainActivity extends AppCompatActivity {
         RecyclerView recyclerView = findViewById(R.id.contacts);
         recyclerView.setAdapter(contactsAdapter);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        bluetoothController = new AndroidBluetoothController(this);
+
+        contactsAdapter.setOnItemClickListener((name, macAddress) -> {
+            Intent intent = new Intent(MainActivity.this, ChatHistoryActivity.class);
+            intent.putExtra(CONNECTED_DEVICE_ADDRESS, macAddress);
+            intent.putExtra(CONNECTED_DEVICE_NAME, name);
+            startActivity(intent);
+        });
     }
 
     @Override
     protected void onResume() {
+        bluetoothController = AndroidBluetoothController.getInstance(this);
         showListOfContacts();
         startListening();
         super.onResume();
-    }
-
-
-    private void startListening() {
-        if (!bluetoothController.isBluetoothEnabled()) {
-            enableBluetooth();
-        } else {
-            if (AndroidBluetoothController.chatUtils == null) {
-                AndroidBluetoothController.chatUtils = new ChatUtils(handler);
-            } else {
-                AndroidBluetoothController.chatUtils.finish();
-                AndroidBluetoothController.chatUtils.setHandler(handler);
-            }
-            AndroidBluetoothController.chatUtils.startListening();
-        }
-    }
-
-    @SuppressLint("MissingPermission")
-    private void enableBluetooth() {
-        Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-        startActivityForResult(enableBtIntent, BLUETOOTH_ENABLE_FOR_PAIRED);
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == BLUETOOTH_ENABLE_FOR_PAIRED) {
-            if (resultCode != RESULT_OK) {
-                enableBluetooth();
-            } else {
-                startListening();
-            }
-        }
-    }
-
-    private final Handler handler = new Handler(msg -> {
-        switch (msg.what) {
-            case MESSAGE_STATE_CHANGED:
-                switch (msg.arg1) {
-                    case ChatUtils.STATE_CONNECTED:
-                        Log.e("STATE_CONNECTED", "Connected");
-                    case ChatUtils.STATE_CONNECTING:
-                        break;
-                }
-                break;
-            case DEVICE_NAME_MESSAGE:
-                Log.e("DEVICE_NAME_MESSAGE", Objects.requireNonNull(msg.getData().getString(CONNECTED_DEVICE_NAME)));
-                break;
-            case TOAST_MESSAGE:
-                Toast.makeText(MainActivity.this, msg.getData().getString(TOAST), Toast.LENGTH_SHORT).show();
-                break;
-        }
-        return false;
-    });
-
-    public void setUpDB(){
-        byte [] message = "Hello".getBytes();
-        new Thread(() -> {
-            controllerDB.insertMessage(new MessageDB("00:11:22:33:FF:EE", "ATest", true, true, message, "00:00:00"));
-            controllerDB.insertMessage(new MessageDB("01:12:23:34:FF:EF", "BTest", false, true, message, "00:01:00"));
-            controllerDB.insertMessage(new MessageDB("02:13:24:35:FF:F0", "CTest", true, false, message, "00:02:00"));
-            controllerDB.insertMessage(new MessageDB("03:14:25:36:FF:F1", "DTest", false, false, message, "00:03:00"));
-            controllerDB.insertMessage(new MessageDB("04:15:26:37:FF:F2", "ETest", true, true, message, "00:04:00"));
-            controllerDB.insertMessage(new MessageDB("05:16:27:38:FF:F3", "FTest", false, true, message, "00:05:00"));
-            controllerDB.insertMessage(new MessageDB("06:17:28:39:FF:F4", "GTest", true, false, message, "00:06:00"));
-            controllerDB.insertMessage(new MessageDB("07:18:29:40:FF:F5", "HTest", false, false, message, "00:07:00"));
-            controllerDB.insertMessage(new MessageDB("08:19:30:41:FF:F6", "ITest", true, true, message, "00:08:00"));
-            controllerDB.insertMessage(new MessageDB("09:20:31:42:FF:F7", "JTest", false, true, message, "00:09:00"));
-            controllerDB.insertMessage(new MessageDB("10:21:32:43:FF:F8", "KTest", true, false, message, "00:10:00"));
-            controllerDB.insertMessage(new MessageDB("11:22:33:44:FF:F9", "LTest", false, false, message, "00:11:00"));
-            controllerDB.insertMessage(new MessageDB("12:23:34:45:FF:FA", "MTest", true, true, message, "00:12:00"));
-            controllerDB.insertMessage(new MessageDB("13:24:35:46:FF:FB", "NTest", false, true, message, "00:13:00"));
-            controllerDB.insertMessage(new MessageDB("14:25:36:47:FF:FC", "OTest", true, false, message, "00:14:00"));
-            controllerDB.insertMessage(new MessageDB("15:26:37:48:FF:FD", "abcTest", false, false, message, "00:15:00"));
-            controllerDB.insertMessage(new MessageDB("16:27:38:49:FF:FE", "AbTest", true, true, message, "00:16:00"));
-            controllerDB.insertMessage(new MessageDB("17:28:39:50:FF:FF", "abTest", false, true, message, "00:17:00"));
-            controllerDB.insertMessage(new MessageDB("18:29:40:51:FF:EF", "bTest", true, false, message, "00:18:00"));
-            controllerDB.insertMessage(new MessageDB("19:30:41:52:FF:F0", "aTest", false, false, message, "00:19:00"));
-        }).start();
-    }
-
-    public void setNoContactsTextVisibility(int visibility) {
-        TextView noContactsText = findViewById(R.id.no_contacts_text);
-        noContactsText.setVisibility(visibility);
     }
 
     @Override
@@ -201,6 +124,69 @@ public class MainActivity extends AppCompatActivity {
     public void showListOfContacts() {
         contactsAdapter.addList(controllerDB.getContactsList());
     }
+
+    public void setNoContactsTextVisibility(int visibility) {
+        TextView noContactsText = findViewById(R.id.no_contacts_text);
+        noContactsText.setVisibility(visibility);
+    }
+
+    private void startListening() {
+        if (!bluetoothController.isBluetoothEnabled()) {
+            enableBluetooth();
+        } else {
+            if (AndroidBluetoothController.chatUtils == null) {
+                AndroidBluetoothController.chatUtils = new ChatUtils(handler);
+            } else {
+                AndroidBluetoothController.chatUtils.finish();
+                AndroidBluetoothController.chatUtils.setHandler(handler);
+            }
+            AndroidBluetoothController.chatUtils.startListening();
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private void enableBluetooth() {
+        Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+        startActivityForResult(enableBtIntent, BLUETOOTH_ENABLE_FOR_PAIRED);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == BLUETOOTH_ENABLE_FOR_PAIRED) {
+            if (resultCode != RESULT_OK) {
+                enableBluetooth();
+            } else {
+                startListening();
+            }
+        }
+    }
+
+    private final Handler handler = new Handler(msg -> {
+        switch (msg.what) {
+            case MESSAGE_STATE_CHANGED:
+                switch (msg.arg1) {
+                    case ChatUtils.STATE_CONNECTED:
+                        Intent intent = new Intent(MainActivity.this, ChatActivity.class);
+                        intent.putExtra(CONNECTED_DEVICE_ADDRESS, contact.getMACaddress());
+                        intent.putExtra(CONNECTED_DEVICE_NAME, contact.getName());
+                        startActivity(intent);
+                        Toast.makeText(MainActivity.this, "Connected to " + contact.getName(), Toast.LENGTH_SHORT).show();
+                        break;
+                    case ChatUtils.STATE_CONNECTING:
+                        break;
+                }
+                break;
+            case DEVICE_NAME_MESSAGE:
+                contact = new BluetoothContact(msg.getData().getString(CONNECTED_DEVICE_NAME), msg.getData().getString(CONNECTED_DEVICE_ADDRESS));
+                Toast.makeText(MainActivity.this, "Connecting to " + contact.getName(), Toast.LENGTH_SHORT).show();
+                break;
+            case TOAST_MESSAGE:
+                Toast.makeText(MainActivity.this, msg.getData().getString(TOAST), Toast.LENGTH_SHORT).show();
+                break;
+        }
+        return false;
+    });
 
     public static class ContactsAdapter extends RecyclerView.Adapter<ContactsAdapter.ViewHolder> implements Filterable {
         private final MainActivity mainActivity;
@@ -254,22 +240,20 @@ public class MainActivity extends AppCompatActivity {
                 EditText editContactName = dialogView.findViewById(R.id.new_contact_name);
                 editContactName.setText(device.getName());
 
-                builder.setTitle("Edit contact name")
-                        .setPositiveButton("Save", (dialog, which) -> {
-                            String newName = editContactName.getText().toString();
-                            if (!newName.isEmpty()) {
-                                for (BluetoothContact contactFromFull : contactsFull) {
-                                    if (contactFromFull.getMACaddress().equals(device.getMACaddress())) {
-                                        contactFromFull.setName(newName);
-                                        break;
-                                    }
-                                }
-                                device.setName(newName);
-                                notifyItemChanged(position);
-                                mainActivity.controllerDB.changeContactName(device.getMACaddress(), newName);
+                builder.setTitle("Edit contact name").setPositiveButton("Save", (dialog, which) -> {
+                    String newName = editContactName.getText().toString();
+                    if (!newName.isEmpty()) {
+                        for (BluetoothContact contactFromFull : contactsFull) {
+                            if (contactFromFull.getMACaddress().equals(device.getMACaddress())) {
+                                contactFromFull.setName(newName);
+                                break;
                             }
-                        })
-                        .setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
+                        }
+                        device.setName(newName);
+                        notifyItemChanged(position);
+                        mainActivity.controllerDB.changeContactName(device.getMACaddress(), newName);
+                    }
+                }).setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
 
                 AlertDialog dialog = builder.create();
                 dialog.show();
@@ -281,16 +265,8 @@ public class MainActivity extends AppCompatActivity {
             return contacts.size();
         }
 
-        @SuppressLint("NotifyDataSetChanged")
-        public void add(String name, String MACaddress) {
-            contacts.add(new BluetoothContact(name, MACaddress));
-            contactsFull.add(new BluetoothContact(name, MACaddress));
-            notifyDataSetChanged();
-            setNoContactsTextVisibility();
-        }
-
         public void setNoContactsTextVisibility() {
-            if(contacts.isEmpty()){
+            if (contacts.isEmpty()) {
                 mainActivity.setNoContactsTextVisibility(View.VISIBLE);
             } else {
                 mainActivity.setNoContactsTextVisibility(View.GONE);
@@ -352,9 +328,6 @@ public class MainActivity extends AppCompatActivity {
                 setNoContactsTextVisibility();
             }
         };
-        public interface OnItemClickListener {
-            void onItemClick(String name, String macAddress);
-        }
 
         @Override
         public void onAttachedToRecyclerView(@NonNull RecyclerView recyclerView) {
@@ -376,5 +349,32 @@ public class MainActivity extends AppCompatActivity {
             }
 
         }
+    }
+
+    @SuppressWarnings("unused")
+    public void setUpDB() {
+        byte[] message = "Hello".getBytes();
+        new Thread(() -> {
+            controllerDB.insertMessage(new MessageDB("00:11:22:33:FF:EE", "ATest", true, true, message, "00:00:00"));
+            controllerDB.insertMessage(new MessageDB("01:12:23:34:FF:EF", "BTest", false, true, message, "00:01:00"));
+            controllerDB.insertMessage(new MessageDB("02:13:24:35:FF:F0", "CTest", true, true, message, "00:02:00"));
+            controllerDB.insertMessage(new MessageDB("03:14:25:36:FF:F1", "DTest", false, true, message, "00:03:00"));
+            controllerDB.insertMessage(new MessageDB("04:15:26:37:FF:F2", "ETest", true, true, message, "00:04:00"));
+            controllerDB.insertMessage(new MessageDB("05:16:27:38:FF:F3", "FTest", false, true, message, "00:05:00"));
+            controllerDB.insertMessage(new MessageDB("06:17:28:39:FF:F4", "GTest", true, true, message, "00:06:00"));
+            controllerDB.insertMessage(new MessageDB("07:18:29:40:FF:F5", "HTest", false, true, message, "00:07:00"));
+            controllerDB.insertMessage(new MessageDB("08:19:30:41:FF:F6", "ITest", true, true, message, "00:08:00"));
+            controllerDB.insertMessage(new MessageDB("09:20:31:42:FF:F7", "JTest", false, true, message, "00:09:00"));
+            controllerDB.insertMessage(new MessageDB("10:21:32:43:FF:F8", "KTest", true, true, message, "00:10:00"));
+            controllerDB.insertMessage(new MessageDB("11:22:33:44:FF:F9", "LTest", false, true, message, "00:11:00"));
+            controllerDB.insertMessage(new MessageDB("12:23:34:45:FF:FA", "MTest", true, true, message, "00:12:00"));
+            controllerDB.insertMessage(new MessageDB("13:24:35:46:FF:FB", "NTest", false, true, message, "00:13:00"));
+            controllerDB.insertMessage(new MessageDB("14:25:36:47:FF:FC", "OTest", true, true, message, "00:14:00"));
+            controllerDB.insertMessage(new MessageDB("15:26:37:48:FF:FD", "abcTest", false, true, message, "00:15:00"));
+            controllerDB.insertMessage(new MessageDB("16:27:38:49:FF:FE", "AbTest", true, true, message, "00:16:00"));
+            controllerDB.insertMessage(new MessageDB("17:28:39:50:FF:FF", "abTest", false, true, message, "00:17:00"));
+            controllerDB.insertMessage(new MessageDB("18:29:40:51:FF:EF", "bTest", true, true, message, "00:18:00"));
+            controllerDB.insertMessage(new MessageDB("19:30:41:52:FF:F0", "aTest", false, true, message, "00:19:00"));
+        }).start();
     }
 }

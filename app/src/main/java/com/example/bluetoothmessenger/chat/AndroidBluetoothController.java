@@ -24,8 +24,9 @@ import java.util.Objects;
 import java.util.Set;
 
 @SuppressLint({"MissingPermission", "StaticFieldLeak"})
-public class AndroidBluetoothController{
-    private final Context context;
+public class AndroidBluetoothController {
+    private static AndroidBluetoothController instance;
+    private Context context;
     private final BluetoothAdapter bluetoothAdapter;
     private final ControllerDB controllerDB = ControllerDB.getInstance();
     private final ArrayList<BluetoothContact> scannedDevices = new ArrayList<>();
@@ -33,7 +34,7 @@ public class AndroidBluetoothController{
     private final ArrayList<BluetoothContact> pairedDevices = new ArrayList<>();
     public static ChatUtils chatUtils;
 
-    public AndroidBluetoothController(Context context) {
+    private AndroidBluetoothController(Context context) {
         this.context = context;
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (bluetoothAdapter == null) {
@@ -47,6 +48,15 @@ public class AndroidBluetoothController{
         context.registerReceiver(receiver, filter);
     }
 
+    public static synchronized AndroidBluetoothController getInstance(Context context) {
+        if (instance == null) {
+            instance = new AndroidBluetoothController(context);
+        } else {
+            instance.context = context;
+        }
+        return instance;
+    }
+
     public ArrayList<BluetoothContact> getPairedDevices() {
         return pairedDevices;
     }
@@ -54,7 +64,7 @@ public class AndroidBluetoothController{
     public void startDiscovery() {
         scannedDevices.clear();
         updatePairedDevices();
-        if(!bluetoothAdapter.startDiscovery()){
+        if (!bluetoothAdapter.startDiscovery()) {
             Toast.makeText(context, "Discovery failed to start", Toast.LENGTH_SHORT).show();
         }
     }
@@ -68,10 +78,10 @@ public class AndroidBluetoothController{
         Set<BluetoothDevice> devices = bluetoothAdapter.getBondedDevices();
         for (BluetoothDevice device : devices) {
             String customName = controllerDB.getDeviceCustomName(device.getAddress());
-            if(customName != null){
+            if (customName != null) {
                 BluetoothContact customDevice = new BluetoothContact(customName, device.getAddress());
                 pairedDevices.add(customDevice);
-            }else{
+            } else {
                 pairedDevices.add(BluetoothContactConverter.toBluetoothContact(device));
             }
         }

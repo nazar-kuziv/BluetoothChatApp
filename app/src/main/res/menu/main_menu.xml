@@ -9,7 +9,7 @@
         app:actionViewClass="androidx.appcompat.widget.SearchView" />
     <item
         android:id="@+id/scan"
-        android:icon="@drawable/bluetooth"
+        android:icon="@drawable/bluetooth_search"
         android:title="@string/look_for_bluetooth_devices"
         app:showAsAction="ifRoom" />
 </menu>

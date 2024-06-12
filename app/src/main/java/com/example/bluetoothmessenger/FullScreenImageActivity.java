@@ -13,12 +13,14 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+
 import com.example.bluetoothmessenger.data.ChatMessage;
 
 import com.ortiz.touchview.TouchImageView;
 
 public class FullScreenImageActivity extends AppCompatActivity {
     TouchImageView imageView;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

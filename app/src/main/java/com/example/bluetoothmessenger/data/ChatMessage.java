@@ -18,10 +18,10 @@ public class ChatMessage {
     public ChatMessage(byte[] message, boolean sentByUser, String type) {
         this.type = type;
         this.sentByUser = sentByUser;
-        if(type.equals(TEXT_MESSAGE)){
+        if (type.equals(TEXT_MESSAGE)) {
             this.message = new String(message);
             Log.e("Message", "Text: " + this.message);
-        }else if(type.equals(IMAGE_MESSAGE)){
+        } else if (type.equals(IMAGE_MESSAGE)) {
             this.image = convertCompressedByteArrayToBitmap(message);
             Log.e("Message", "Image: " + this.message);
         }
@@ -32,16 +32,16 @@ public class ChatMessage {
         return type.equals(TEXT_MESSAGE);
     }
 
-    public static Bitmap convertCompressedByteArrayToBitmap(byte[] src){
+    public static Bitmap convertCompressedByteArrayToBitmap(byte[] src) {
         return BitmapFactory.decodeByteArray(src, 0, src.length);
     }
 
-    public static List<ChatMessage> convertFromMessageDB(List<MessageDB> messages){
+    public static List<ChatMessage> convertFromMessageDB(List<MessageDB> messages) {
         List<ChatMessage> chatMessages = new ArrayList<>();
-        for(MessageDB messageDB : messages){
-            if(messageDB.textMessage){
+        for (MessageDB messageDB : messages) {
+            if (messageDB.textMessage) {
                 chatMessages.add(new ChatMessage(messageDB.message, messageDB.sentByUser, TEXT_MESSAGE));
-            }else{
+            } else {
                 chatMessages.add(new ChatMessage(messageDB.message, messageDB.sentByUser, IMAGE_MESSAGE));
             }
         }

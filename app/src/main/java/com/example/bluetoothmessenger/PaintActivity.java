@@ -54,8 +54,7 @@ public class PaintActivity extends AppCompatActivity {
         brushSizeBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                if(progress< 1)
-                    progress = 1;
+                if (progress < 1) progress = 1;
                 signatureView.setPenSize(progress);
                 brushSizeText.setText(String.valueOf(progress));
             }
@@ -74,13 +73,13 @@ public class PaintActivity extends AppCompatActivity {
         colorButton.setOnClickListener(v -> openColorPicker());
 
         sendButton.setOnClickListener(v -> {
-            if(!signatureView.isBitmapEmpty()){
+            if (!signatureView.isBitmapEmpty()) {
                 Bitmap imgBitmap = signatureView.getSignatureBitmap();
                 byte[] imgBytes = convertBitmapToByteArrayCompressed(imgBitmap);
                 AndroidBluetoothController.chatUtils.sendImage(imgBytes);
                 onBackPressed();
                 Log.e("Image", "We are sending an image" + imgBytes.length);
-            }else{
+            } else {
                 Toast.makeText(this, "Please draw something", Toast.LENGTH_SHORT).show();
             }
         });
@@ -105,7 +104,7 @@ public class PaintActivity extends AppCompatActivity {
         }
     }
 
-    private byte[] convertBitmapToByteArrayCompressed(Bitmap bitmap){
+    private byte[] convertBitmapToByteArrayCompressed(Bitmap bitmap) {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         bitmap.compress(Bitmap.CompressFormat.PNG, 40, stream);
         byte[] byteArray = stream.toByteArray();
@@ -120,6 +119,7 @@ public class PaintActivity extends AppCompatActivity {
                 defaultColor = color;
                 signatureView.setPenColor(color);
             }
+
             @Override
             public void onCancel(AmbilWarnaDialog dialog) {
             }

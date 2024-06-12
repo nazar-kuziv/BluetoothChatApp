@@ -82,13 +82,12 @@ public class BluetoothScanActivity extends AppCompatActivity {
             return insets;
         });
 
+        bluetoothController = AndroidBluetoothController.getInstance(this);
+
         scannedDevicesLayout = findViewById(R.id.scanned_devices_layout);
         scannedDevicesTextView = findViewById(R.id.scanned_devices_text);
 
         setAdapters();
-
-        bluetoothController = new AndroidBluetoothController(this);
-
 
         scannedDevicesAdapter.setOnItemClickListener((name, macAddress) -> {
             if (!bluetoothController.isBluetoothEnabled()) {
@@ -122,6 +121,12 @@ public class BluetoothScanActivity extends AppCompatActivity {
     protected void onRestart() {
         super.onRestart();
         showPairedDevices();
+    }
+
+    @Override
+    protected void onResume() {
+        bluetoothController = AndroidBluetoothController.getInstance(this);
+        super.onResume();
     }
 
     @Override
