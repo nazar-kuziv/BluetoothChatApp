@@ -343,11 +343,8 @@ public class ChatActivity extends AppCompatActivity {
             }
 
             private void openFullScreenImage(Bitmap bitmap) {
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos);
-                byte[] imageInByte = baos.toByteArray();
+                FullScreenImageActivity.setImg(bitmap);
                 Intent intent = new Intent(itemView.getContext(), FullScreenImageActivity.class);
-                intent.putExtra(IMAGE_MESSAGE, imageInByte);
                 itemView.getContext().startActivity(intent);
             }
         }

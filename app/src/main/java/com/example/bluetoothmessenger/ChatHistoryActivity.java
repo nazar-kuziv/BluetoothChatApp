@@ -7,7 +7,6 @@ import static com.example.bluetoothmessenger.chat.ChatUtils.DEVICE_NAME_MESSAGE;
 import static com.example.bluetoothmessenger.chat.ChatUtils.MESSAGE_STATE_CHANGED;
 import static com.example.bluetoothmessenger.chat.ChatUtils.TOAST;
 import static com.example.bluetoothmessenger.chat.ChatUtils.TOAST_MESSAGE;
-import static com.example.bluetoothmessenger.data.ChatMessage.IMAGE_MESSAGE;
 
 import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
@@ -44,7 +43,6 @@ import com.example.bluetoothmessenger.data.ChatMessage;
 import com.example.bluetoothmessenger.roomDB.ControllerDB;
 import com.example.bluetoothmessenger.roomDB.MessageDB;
 
-import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -256,11 +254,8 @@ public class ChatHistoryActivity extends AppCompatActivity {
             }
 
             private void openFullScreenImage(Bitmap bitmap) {
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos);
-                byte[] imageInByte = baos.toByteArray();
+                FullScreenImageActivity.setImg(bitmap);
                 Intent intent = new Intent(itemView.getContext(), FullScreenImageActivity.class);
-                intent.putExtra(IMAGE_MESSAGE, imageInByte);
                 itemView.getContext().startActivity(intent);
             }
         }

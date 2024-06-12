@@ -1,7 +1,5 @@
 package com.example.bluetoothmessenger;
 
-import static com.example.bluetoothmessenger.data.ChatMessage.IMAGE_MESSAGE;
-
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.view.Menu;
@@ -14,11 +12,10 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-import com.example.bluetoothmessenger.data.ChatMessage;
-
 import com.ortiz.touchview.TouchImageView;
 
 public class FullScreenImageActivity extends AppCompatActivity {
+    private static Bitmap img;
     TouchImageView imageView;
 
     @Override
@@ -31,10 +28,9 @@ public class FullScreenImageActivity extends AppCompatActivity {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
-        byte[] imgBytes = getIntent().getByteArrayExtra(IMAGE_MESSAGE);
-        Bitmap img = ChatMessage.convertCompressedByteArrayToBitmap(imgBytes);
         imageView = findViewById(R.id.img_view);
-        imageView.setImageBitmap(img);
+        if(img != null)
+            imageView.setImageBitmap(img);
     }
 
     @Override
@@ -53,5 +49,9 @@ public class FullScreenImageActivity extends AppCompatActivity {
         } else {
             return super.onOptionsItemSelected(item);
         }
+    }
+
+    public static void setImg(Bitmap img) {
+        FullScreenImageActivity.img = img;
     }
 }
